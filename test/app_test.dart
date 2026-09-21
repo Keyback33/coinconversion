@@ -6,6 +6,8 @@ import 'package:coinconversion/features/rates/rate_snapshot.dart';
 import 'package:coinconversion/features/rates/rates_cache.dart';
 import 'package:coinconversion/providers.dart';
 import 'package:coinconversion/shared/app_failure.dart';
+import 'package:coinconversion/shared/widgets/app_brand_mark.dart';
+import 'package:coinconversion/shared/widgets/currency_identity.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -61,9 +63,14 @@ void main() {
         child: const CoinConversionApp(),
       ),
     );
+    expect(find.byType(AppBrandMark), findsWidgets);
     await tester.pumpAndSettle();
 
     expect(find.text('CoinConversion'), findsOneWidget);
+    expect(find.text('Fuente y estado'), findsOneWidget);
+    expect(find.text('Cotizaciones'), findsOneWidget);
+    expect(find.text('Conversor'), findsOneWidget);
+    expect(find.byType(CurrencyFlag), findsWidgets);
     expect(find.textContaining('Fuente: ExchangeRate-API'), findsWidgets);
 
     await tester.ensureVisible(find.byKey(const Key('amount-field')));
@@ -194,6 +201,40 @@ void main() {
     );
     expect(find.text('Datos guardados'), findsNothing);
     expect(find.textContaining('Extraído:'), findsWidgets);
+  });
+
+  testWidgets('layout móvil tolera texto al 200%', (tester) async {
+    tester.view.physicalSize = const Size(430, 932);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      tester.platformDispatcher.clearTextScaleFactorTestValue();
+    });
+    final source = _FixtureSource(
+      _snapshot('exchange_rate_api', DateTime.now().toUtc()),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          primaryRateSourceProvider.overrideWithValue(source),
+          fallbackRateSourceProvider.overrideWithValue(source),
+        ],
+        child: const CoinConversionApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    await tester.scrollUntilVisible(
+      find.text('Conversor'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
   });
 }
 

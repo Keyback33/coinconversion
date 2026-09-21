@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers.dart';
 import '../../shared/app_failure.dart';
 import '../../shared/rate_status.dart';
+import '../../shared/widgets/app_brand_mark.dart';
+import '../../shared/widgets/section_card.dart';
+import '../../theme/app_theme.dart';
 import '../converter/converter_panel.dart';
 import '../rates/exchange_rate_repository.dart';
 import '../rates/rate_metadata.dart';
@@ -48,24 +51,54 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Widget build(BuildContext context) {
     final rates = ref.watch(ratesControllerProvider);
     final preferences = ref.watch(preferencesControllerProvider);
+    final compactActions = MediaQuery.sizeOf(context).width < 600 ||
+        MediaQuery.textScalerOf(context).scale(1) >= 1.5;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('CoinConversion'),
+        title: const Row(
+          children: [
+            AppBrandMark(size: 34),
+            SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                'CoinConversion',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
         actions: [
-          TextButton.icon(
-            onPressed: rates.isRefreshing
-                ? null
-                : () => ref
-                      .read(ratesControllerProvider.notifier)
-                      .refresh(RefreshTrigger.manual),
-            icon: rates.isRefreshing
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.refresh),
-            label: Text(rates.isRefreshing ? 'Refrescando…' : 'Refrescar'),
-          ),
+          if (compactActions)
+            IconButton(
+              tooltip: rates.isRefreshing ? 'Refrescando…' : 'Refrescar',
+              onPressed: rates.isRefreshing
+                  ? null
+                  : () => ref
+                        .read(ratesControllerProvider.notifier)
+                        .refresh(RefreshTrigger.manual),
+              icon: rates.isRefreshing
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh),
+            )
+          else
+            TextButton.icon(
+              onPressed: rates.isRefreshing
+                  ? null
+                  : () => ref
+                        .read(ratesControllerProvider.notifier)
+                        .refresh(RefreshTrigger.manual),
+              icon: rates.isRefreshing
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh),
+              label: Text(rates.isRefreshing ? 'Refrescando…' : 'Refrescar'),
+            ),
           IconButton(
             tooltip: 'Ajustes',
             onPressed: () => Navigator.of(context).push<void>(
@@ -79,7 +112,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ),
       body: SafeArea(
         child: rates.isLoadingCache
-            ? const Center(child: CircularProgressIndicator())
+            ? Center(
+                child: Semantics(
+                  label: 'Cargando CoinConversion',
+                  child: const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AppBrandMark(size: 88),
+                      SizedBox(height: 16),
+                      CircularProgressIndicator(),
+                    ],
+                  ),
+                ),
+              )
             : RefreshIndicator(
                 onRefresh: () => ref
                     .read(ratesControllerProvider.notifier)
@@ -135,10 +180,12 @@ class _StatusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final snapshot = rates.snapshot;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+    final sections = Theme.of(context).extension<AppSectionTheme>()!;
+    return SectionCard(
+      style: sections.status,
+      icon: Icons.cloud_sync_outlined,
+      title: 'Fuente y estado',
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (snapshot == null) ...[
@@ -197,7 +244,6 @@ class _StatusCard extends StatelessWidget {
                 text: 'Esperá antes de volver a actualizar.',
               ),
           ],
-        ),
       ),
     );
   }

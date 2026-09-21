@@ -4,9 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers.dart';
 import '../../shared/money_formatter.dart';
+import '../../shared/widgets/currency_identity.dart';
+import '../../shared/widgets/section_card.dart';
+import '../../theme/app_theme.dart';
 import '../currencies/currency.dart';
 import '../currencies/currency_catalog.dart';
 import '../currencies/currency_selector.dart';
+import '../currencies/currency_visual_identity.dart';
 import '../rates/rate_metadata.dart';
 import '../rates/rate_snapshot.dart';
 import '../settings/user_preferences.dart';
@@ -66,15 +70,15 @@ class _ConverterPanelState extends ConsumerState<ConverterPanel> {
     final from = CurrencyCatalog.find(preferences.converterFromCode)!;
     final to = CurrencyCatalog.find(preferences.converterToCode)!;
     final result = _calculate(from, to);
+    final sections = Theme.of(context).extension<AppSectionTheme>()!;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+    return SectionCard(
+      style: sections.converter,
+      icon: Icons.swap_horiz,
+      title: 'Conversor',
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Convertir', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 16),
             TextField(
               key: const Key('amount-field'),
               controller: _amountController,
@@ -157,7 +161,6 @@ class _ConverterPanelState extends ConsumerState<ConverterPanel> {
             else
               const Text('Conectate una vez para descargar cotizaciones.'),
           ],
-        ),
       ),
     );
   }
@@ -272,16 +275,26 @@ class _CurrencyButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton(
-      onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      ),
-      child: Column(
-        children: [
-          Text(label, style: Theme.of(context).textTheme.labelSmall),
-          Text(currency.code),
-        ],
+    final identity = CurrencyVisualIdentity.of(currency.code);
+    final accent = identity.accentFor(Theme.of(context).brightness);
+    return Semantics(
+      button: true,
+      label: '$label: ${currency.code}, ${currency.name}',
+      excludeSemantics: true,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          side: BorderSide(color: accent, width: 2),
+          minimumSize: const Size(0, 64),
+        ),
+        child: Column(
+          children: [
+            Text(label, style: Theme.of(context).textTheme.labelSmall),
+            const SizedBox(height: 4),
+            CurrencyIdentity(currency: currency, compact: true),
+          ],
+        ),
       ),
     );
   }

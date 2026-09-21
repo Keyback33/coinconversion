@@ -3,9 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers.dart';
 import '../../shared/money_formatter.dart';
+import '../../shared/widgets/currency_identity.dart';
+import '../../shared/widgets/section_card.dart';
+import '../../theme/app_theme.dart';
 import '../converter/currency_converter.dart';
 import '../currencies/currency_catalog.dart';
 import '../currencies/currency_selector.dart';
+import '../currencies/currency_visual_identity.dart';
 import '../settings/user_preferences.dart';
 import 'rate_snapshot.dart';
 
@@ -25,10 +29,12 @@ class _RatesListState extends ConsumerState<RatesList> {
   Widget build(BuildContext context) {
     final preferences = ref.watch(preferencesControllerProvider).value;
     final reference = CurrencyCatalog.find(preferences.referenceCode)!;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+    final sections = Theme.of(context).extension<AppSectionTheme>()!;
+    return SectionCard(
+      style: sections.rates,
+      icon: Icons.show_chart,
+      title: 'Cotizaciones',
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Wrap(
@@ -79,67 +85,88 @@ class _RatesListState extends ConsumerState<RatesList> {
                   final currency = CurrencyCatalog.find(
                     preferences.favoriteCodes[index],
                   )!;
-                  return ListTile(
+                  final identity = CurrencyVisualIdentity.of(currency.code);
+                  final accent = identity.accentFor(
+                    Theme.of(context).brightness,
+                  );
+                  return Container(
                     key: ValueKey(currency.code),
-                    contentPadding: EdgeInsets.zero,
-                    leading: _editing
-                        ? ReorderableDragStartListener(
-                            index: index,
-                            child: const Tooltip(
-                              message: 'Reordenar',
-                              child: Icon(Icons.drag_handle),
+                    margin: const EdgeInsets.symmetric(vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surface.withValues(alpha: 0.72),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border(left: BorderSide(color: accent, width: 4)),
+                    ),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.only(left: 8, right: 4),
+                      leading: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_editing)
+                            ReorderableDragStartListener(
+                              index: index,
+                              child: const Tooltip(
+                                message: 'Reordenar',
+                                child: Icon(Icons.drag_handle),
+                              ),
                             ),
-                          )
-                        : null,
-                    title: Text('${currency.code} · ${currency.name}'),
-                    subtitle: currency.code == 'ARS'
-                        ? const Text('Referencia fiat estándar del provider')
-                        : null,
-                    trailing: _editing
-                        ? Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                tooltip: 'Subir ${currency.code}',
-                                onPressed: index == 0
-                                    ? null
-                                    : () => ref
-                                          .read(
-                                            preferencesControllerProvider
-                                                .notifier,
-                                          )
-                                          .moveFavorite(index, -1),
-                                icon: const Icon(Icons.arrow_upward),
-                              ),
-                              IconButton(
-                                tooltip: 'Bajar ${currency.code}',
-                                onPressed:
-                                    index ==
-                                        preferences.favoriteCodes.length - 1
-                                    ? null
-                                    : () => ref
-                                          .read(
-                                            preferencesControllerProvider
-                                                .notifier,
-                                          )
-                                          .moveFavorite(index, 1),
-                                icon: const Icon(Icons.arrow_downward),
-                              ),
-                              IconButton(
-                                tooltip: 'Quitar ${currency.code}',
-                                onPressed: () => ref
-                                    .read(
-                                      preferencesControllerProvider.notifier,
-                                    )
-                                    .removeFavorite(currency.code),
-                                icon: const Icon(Icons.remove_circle_outline),
-                              ),
-                            ],
-                          )
-                        : Text(
-                            _rateText(reference.code, currency.code),
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
+                          CurrencyFlag(currency: currency),
+                        ],
+                      ),
+                      title: Text('${currency.code} · ${currency.name}'),
+                      subtitle: currency.code == 'ARS'
+                          ? const Text('Referencia fiat estándar del provider')
+                          : null,
+                      trailing: _editing
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  tooltip: 'Subir ${currency.code}',
+                                  onPressed: index == 0
+                                      ? null
+                                      : () => ref
+                                            .read(
+                                              preferencesControllerProvider
+                                                  .notifier,
+                                            )
+                                            .moveFavorite(index, -1),
+                                  icon: const Icon(Icons.arrow_upward),
+                                ),
+                                IconButton(
+                                  tooltip: 'Bajar ${currency.code}',
+                                  onPressed:
+                                      index ==
+                                          preferences.favoriteCodes.length - 1
+                                      ? null
+                                      : () => ref
+                                            .read(
+                                              preferencesControllerProvider
+                                                  .notifier,
+                                            )
+                                            .moveFavorite(index, 1),
+                                  icon: const Icon(Icons.arrow_downward),
+                                ),
+                                IconButton(
+                                  tooltip: 'Quitar ${currency.code}',
+                                  onPressed: () => ref
+                                      .read(
+                                        preferencesControllerProvider.notifier,
+                                      )
+                                      .removeFavorite(currency.code),
+                                  icon: const Icon(
+                                    Icons.remove_circle_outline,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : Text(
+                              _rateText(reference.code, currency.code),
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                    ),
                   );
                 },
               ),
@@ -150,7 +177,6 @@ class _RatesListState extends ConsumerState<RatesList> {
               label: const Text('Agregar moneda'),
             ),
           ],
-        ),
       ),
     );
   }

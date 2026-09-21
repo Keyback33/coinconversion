@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'features/home/home_screen.dart';
 import 'providers.dart';
+import 'theme/app_theme.dart';
 
 class CoinConversionApp extends ConsumerStatefulWidget {
   const CoinConversionApp({super.key});
@@ -24,8 +25,6 @@ class _CoinConversionAppState extends ConsumerState<CoinConversionApp> {
   @override
   Widget build(BuildContext context) {
     final preferences = ref.watch(preferencesControllerProvider).value;
-    final colorScheme = ColorScheme.fromSeed(seedColor: Colors.indigo);
-
     return MaterialApp(
       title: 'CoinConversion',
       debugShowCheckedModeBanner: false,
@@ -36,14 +35,8 @@ class _CoinConversionAppState extends ConsumerState<CoinConversionApp> {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      theme: ThemeData(colorScheme: colorScheme, useMaterial3: true),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.indigo,
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
       themeMode: preferences.themeMode,
       home: const HomeScreen(),
     );

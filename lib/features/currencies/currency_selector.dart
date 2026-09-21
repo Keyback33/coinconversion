@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../shared/widgets/currency_identity.dart';
 import '../rates/rate_snapshot.dart';
 import 'currency.dart';
 import 'currency_catalog.dart';
+import 'currency_visual_identity.dart';
 
 Future<Currency?> showCurrencySelector(
   BuildContext context, {
@@ -95,19 +97,39 @@ class _CurrencySelectorState extends State<_CurrencySelector> {
                       final unavailable =
                           widget.snapshot != null &&
                           !widget.snapshot!.rates.containsKey(currency.code);
-                      return ListTile(
-                        enabled: !excluded && !unavailable,
-                        leading: CircleAvatar(child: Text(currency.code[0])),
-                        title: Text('${currency.code} · ${currency.name}'),
-                        subtitle: unavailable
-                            ? const Text('Sin cotización disponible')
-                            : Text(currency.symbol ?? currency.code),
-                        trailing: widget.selectedCode == currency.code
-                            ? const Icon(Icons.check)
-                            : null,
-                        onTap: excluded || unavailable
-                            ? null
-                            : () => Navigator.pop(context, currency),
+                      final identity = CurrencyVisualIdentity.of(
+                        currency.code,
+                      );
+                      final accent = identity.accentFor(
+                        Theme.of(context).brightness,
+                      );
+                      return Container(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border(
+                            left: BorderSide(color: accent, width: 4),
+                          ),
+                        ),
+                        child: ListTile(
+                          enabled: !excluded && !unavailable,
+                          leading: CurrencyFlag(currency: currency),
+                          title: Text('${currency.code} · ${currency.name}'),
+                          subtitle: unavailable
+                              ? const Text('Sin cotización disponible')
+                              : excluded
+                              ? const Text('Ya agregada')
+                              : Text(currency.symbol ?? currency.code),
+                          trailing: widget.selectedCode == currency.code
+                              ? Icon(Icons.check_circle, color: accent)
+                              : null,
+                          onTap: excluded || unavailable
+                              ? null
+                              : () => Navigator.pop(context, currency),
+                        ),
                       );
                     },
                   ),
