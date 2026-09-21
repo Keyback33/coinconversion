@@ -82,22 +82,38 @@ keyAlias=coinconversion
 keyPassword=<contraseña-privada>
 ```
 
-Generar el APK universal:
+Generar, validar y publicar el APK universal:
 
 ```powershell
-flutter build apk --release --dart-define-from-file=C:\ruta-privada\coinconversion.private.json
+./scripts/Build-Release.ps1 -PrivateConfigPath C:\ruta-privada\coinconversion.private.json
 ```
 
-Salida:
+El parámetro `PrivateConfigPath` es opcional. Sin él, la aplicación utiliza ExchangeRate-API y el cache, pero no dispone del fallback autenticado de Open Exchange Rates. El script nunca copia el JSON privado a `dist` ni imprime su contenido. El App ID sí queda embebido en el APK cuando se compila con esa configuración, por lo que la distribución debe mantenerse para uso personal.
+
+El script verifica formato, analyzer y tests antes de compilar. Después comprueba firma, package, versión, SDK y permisos, y conserva únicamente la versión recién generada y validada. La entrega actual es:
 
 ```text
-build/app/outputs/flutter-apk/app-release.apk
+dist/coinconversion-1.0.0.apk
+dist/coinconversion-1.0.0.apk.sha256
+dist/1.0.0/apk-info.txt
+dist/1.0.0/permissions.txt
+dist/1.0.0/signature.txt
+```
+
+`build/` es una salida temporal ignorada; `dist/` contiene la release firmada que se publica en Git. Para otra versión se debe incrementar `version` en `pubspec.yaml` y volver a ejecutar el script. La limpieza de la entrega anterior ocurre solamente después de validar el nuevo APK y su checksum.
+
+La entrega `1.0.0` incluida actualmente fue compilada sin un `OXR_APP_ID` personal. El provider principal y el funcionamiento offline posterior a una descarga siguen disponibles.
+
+Repetir la verificación sin recompilar:
+
+```powershell
+./scripts/Verify-Apk.ps1
 ```
 
 Instalar en un dispositivo autorizado:
 
 ```powershell
-adb install -r build/app/outputs/flutter-apk/app-release.apk
+adb install -r dist/coinconversion-1.0.0.apk
 ```
 
 ## Providers, límites y privacidad

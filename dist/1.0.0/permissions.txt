@@ -1,0 +1,4 @@
+package: ar.com.coinconversion
+uses-permission: name='android.permission.INTERNET'
+permission: ar.com.coinconversion.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+uses-permission: name='ar.com.coinconversion.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'

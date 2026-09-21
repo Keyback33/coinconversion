@@ -1,0 +1,18 @@
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): false
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v3.2 scheme (APK Signature Scheme v3.2): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+V2 Signer: certificate DN: CN=CoinConversion, OU=Personal, O=CoinConversion, L=Buenos Aires, ST=Buenos Aires, C=AR
+V2 Signer: certificate SHA-256 digest: aa23b7c9b103ffae11f4dd1574852f0e7afe8710d886fd9445739d0ed17f1a8c
+V2 Signer: certificate SHA-1 digest: 58e506e1cfdab8dae19d53326cfa6e0bcba3fe97
+V2 Signer: certificate MD5 digest: e0f8612dc149714939f4466760fd81c0
+V2 Signer: key algorithm: RSA
+V2 Signer: key size (bits): 2048
+V2 Signer: public key SHA-256 digest: 49e36c647003e7b89c6dceefe1ff4d45e036dc56ba5c8b6531bd9f2427722c4d
+V2 Signer: public key SHA-1 digest: b8bfb6bb5d787aa13af6cf4ef64a94e647ba6117
+V2 Signer: public key MD5 digest: dbcff624b68777518f7b1152ceb257a9
