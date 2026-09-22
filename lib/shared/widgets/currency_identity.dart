@@ -31,11 +31,8 @@ class CurrencyFlag extends StatelessWidget {
               : Image.asset(
                   identity.flagAsset,
                   fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) => Icon(
-                    Icons.public,
-                    size: size * 0.6,
-                    color: accent,
-                  ),
+                  errorBuilder: (context, error, stackTrace) =>
+                      Icon(Icons.public, size: size * 0.6, color: accent),
                 ),
         ),
       ),

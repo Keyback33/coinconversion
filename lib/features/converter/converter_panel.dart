@@ -77,90 +77,87 @@ class _ConverterPanelState extends ConsumerState<ConverterPanel> {
       icon: Icons.swap_horiz,
       title: 'Conversor',
       child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextField(
-              key: const Key('amount-field'),
-              controller: _amountController,
-              focusNode: _amountFocus,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            key: const Key('amount-field'),
+            controller: _amountController,
+            focusNode: _amountFocus,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            maxLength: AmountParser.maxLength,
+            decoration: InputDecoration(
+              labelText: 'Monto',
+              hintText: '100',
+              border: const OutlineInputBorder(),
+              errorText: result.inputError,
+              helperText: 'Sin separadores de miles; usá coma o punto decimal.',
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _CurrencyButton(
+                  label: 'Desde',
+                  currency: from,
+                  onPressed: () =>
+                      _selectCurrency(preferences, selectingFrom: true),
+                ),
               ),
-              maxLength: AmountParser.maxLength,
-              decoration: InputDecoration(
-                labelText: 'Monto',
-                hintText: '100',
-                border: const OutlineInputBorder(),
-                errorText: result.inputError,
-                helperText:
-                    'Sin separadores de miles; usá coma o punto decimal.',
+              IconButton(
+                tooltip: 'Invertir monedas',
+                onPressed: () => _swap(preferences),
+                icon: const Icon(Icons.swap_horiz),
               ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: _CurrencyButton(
-                    label: 'Desde',
-                    currency: from,
-                    onPressed: () =>
-                        _selectCurrency(preferences, selectingFrom: true),
-                  ),
+              Expanded(
+                child: _CurrencyButton(
+                  label: 'Hacia',
+                  currency: to,
+                  onPressed: () =>
+                      _selectCurrency(preferences, selectingFrom: false),
                 ),
-                IconButton(
-                  tooltip: 'Invertir monedas',
-                  onPressed: () => _swap(preferences),
-                  icon: const Icon(Icons.swap_horiz),
-                ),
-                Expanded(
-                  child: _CurrencyButton(
-                    label: 'Hacia',
-                    currency: to,
-                    onPressed: () =>
-                        _selectCurrency(preferences, selectingFrom: false),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        result.display ?? '—',
-                        key: const Key('conversion-result'),
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
-                      if (result.belowMinimum)
-                        Text('Menor que ${to.code} ${_minimum(to)}'),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Copiar resultado',
-                  onPressed: result.display == null
-                      ? null
-                      : () => _copy(result.display!),
-                  icon: const Icon(Icons.copy),
-                ),
-              ],
-            ),
-            if (result.rateText != null) ...[
-              const SizedBox(height: 8),
-              Text('1 ${from.code} = ${result.rateText} ${to.code}'),
+              ),
             ],
-            const SizedBox(height: 12),
-            if (from.code == to.code)
-              const Text('Conversión directa; no requiere cotización.')
-            else if (widget.snapshot != null)
-              RateMetadata(snapshot: widget.snapshot!, compact: true)
-            else
-              const Text('Conectate una vez para descargar cotizaciones.'),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      result.display ?? '—',
+                      key: const Key('conversion-result'),
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    if (result.belowMinimum)
+                      Text('Menor que ${to.code} ${_minimum(to)}'),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'Copiar resultado',
+                onPressed: result.display == null
+                    ? null
+                    : () => _copy(result.display!),
+                icon: const Icon(Icons.copy),
+              ),
+            ],
+          ),
+          if (result.rateText != null) ...[
+            const SizedBox(height: 8),
+            Text('1 ${from.code} = ${result.rateText} ${to.code}'),
           ],
+          const SizedBox(height: 12),
+          if (from.code == to.code)
+            const Text('Conversión directa; no requiere cotización.')
+          else if (widget.snapshot != null)
+            RateMetadata(snapshot: widget.snapshot!, compact: true)
+          else
+            const Text('Conectate una vez para descargar cotizaciones.'),
+        ],
       ),
     );
   }

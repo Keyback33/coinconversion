@@ -7,22 +7,25 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('every catalog currency has a complete visual identity and asset', () async {
-    expect(
-      CurrencyVisualIdentity.byCode.keys.toSet(),
-      CurrencyCatalog.currencies.map((currency) => currency.code).toSet(),
-    );
-
-    for (final currency in CurrencyCatalog.currencies) {
-      final identity = CurrencyVisualIdentity.of(currency.code);
-      expect(identity.issuerLabel, isNotEmpty);
-      expect(identity.flagAsset, isNotEmpty);
+  test(
+    'every catalog currency has a complete visual identity and asset',
+    () async {
       expect(
-        (await rootBundle.load(identity.flagAsset)).lengthInBytes,
-        greaterThan(0),
+        CurrencyVisualIdentity.byCode.keys.toSet(),
+        CurrencyCatalog.currencies.map((currency) => currency.code).toSet(),
       );
-    }
-  });
+
+      for (final currency in CurrencyCatalog.currencies) {
+        final identity = CurrencyVisualIdentity.of(currency.code);
+        expect(identity.issuerLabel, isNotEmpty);
+        expect(identity.flagAsset, isNotEmpty);
+        expect(
+          (await rootBundle.load(identity.flagAsset)).lengthInBytes,
+          greaterThan(0),
+        );
+      }
+    },
+  );
 
   test('currency accents meet non-text contrast on final surfaces', () {
     for (final theme in [AppTheme.light, AppTheme.dark]) {

@@ -13,9 +13,11 @@ Future<Currency?> showCurrencySelector(
   RateSnapshot? snapshot,
   Set<String> excludedCodes = const {},
 }) {
+  FocusManager.instance.primaryFocus?.unfocus();
   return showModalBottomSheet<Currency>(
     context: context,
     isScrollControlled: true,
+    requestFocus: false,
     useSafeArea: true,
     builder: (context) => _CurrencySelector(
       title: title,
@@ -44,7 +46,37 @@ class _CurrencySelector extends StatefulWidget {
 }
 
 class _CurrencySelectorState extends State<_CurrencySelector> {
+  final _searchController = TextEditingController();
+  final _searchFocus = FocusNode();
+
   String _query = '';
+  bool _searchVisible = false;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocus.dispose();
+    super.dispose();
+  }
+
+  void _toggleSearch() {
+    if (_searchVisible) {
+      _searchFocus.unfocus();
+      _searchController.clear();
+      setState(() {
+        _query = '';
+        _searchVisible = false;
+      });
+      return;
+    }
+
+    setState(() => _searchVisible = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _searchVisible) {
+        _searchFocus.requestFocus();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -64,6 +96,13 @@ class _CurrencySelectorState extends State<_CurrencySelector> {
                   ),
                 ),
                 IconButton(
+                  tooltip: _searchVisible
+                      ? 'Cerrar búsqueda'
+                      : 'Buscar monedas',
+                  onPressed: _toggleSearch,
+                  icon: Icon(_searchVisible ? Icons.search_off : Icons.search),
+                ),
+                IconButton(
                   tooltip: 'Cerrar',
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.close),
@@ -71,18 +110,21 @@ class _CurrencySelectorState extends State<_CurrencySelector> {
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: TextField(
-              autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'Buscar código o nombre',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
+          if (_searchVisible) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: TextField(
+                controller: _searchController,
+                focusNode: _searchFocus,
+                decoration: const InputDecoration(
+                  labelText: 'Buscar código o nombre',
+                  prefixIcon: Icon(Icons.search),
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (value) => setState(() => _query = value),
               ),
-              onChanged: (value) => setState(() => _query = value),
             ),
-          ),
+          ],
           const SizedBox(height: 8),
           Expanded(
             child: matches.isEmpty
@@ -97,9 +139,7 @@ class _CurrencySelectorState extends State<_CurrencySelector> {
                       final unavailable =
                           widget.snapshot != null &&
                           !widget.snapshot!.rates.containsKey(currency.code);
-                      final identity = CurrencyVisualIdentity.of(
-                        currency.code,
-                      );
+                      final identity = CurrencyVisualIdentity.of(currency.code);
                       final accent = identity.accentFor(
                         Theme.of(context).brightness,
                       );

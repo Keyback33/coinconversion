@@ -86,7 +86,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         : manualRefreshCoolingDown
         ? 'Disponible en ${_formatRemaining(manualRefreshRemaining)}'
         : 'Refrescar';
-    final compactActions = MediaQuery.sizeOf(context).width < 600 ||
+    final compactActions =
+        MediaQuery.sizeOf(context).width < 600 ||
         MediaQuery.textScalerOf(context).scale(1) >= 1.5;
     return Scaffold(
       appBar: AppBar(
@@ -232,71 +233,68 @@ class _StatusCard extends StatelessWidget {
       icon: Icons.cloud_sync_outlined,
       title: 'Fuente y estado',
       child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (snapshot == null) ...[
-              const Icon(Icons.cloud_off_outlined, size: 40),
-              const SizedBox(height: 8),
-              Text(
-                'Todavía no hay cotizaciones',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const Text(
-                'Conectate una vez para descargarlas. Tus monedas y ajustes siguen disponibles.',
-                textAlign: TextAlign.center,
-              ),
-            ] else ...[
-              RateMetadata(snapshot: snapshot),
-              if (rates.source == RatesSource.cache)
-                const _Notice(
-                  icon: Icons.offline_bolt_outlined,
-                  text: 'Datos guardados',
-                ),
-              if (RateStatus.isStale(snapshot, DateTime.now().toUtc()))
-                const _Notice(
-                  icon: Icons.history,
-                  text: 'Cotizaciones antiguas',
-                ),
-              if (RateStatus.isFromFuture(snapshot, DateTime.now().toUtc()))
-                const _Notice(
-                  icon: Icons.schedule,
-                  text: 'Revisá la fecha del dispositivo',
-                ),
-            ],
-            if (rates.refreshFailure != null)
-              _Notice(
-                icon: Icons.warning_amber,
-                text: _failureText(rates.refreshFailure!, snapshot != null),
-              ),
-            if (rates.cacheReadFailed)
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (snapshot == null) ...[
+            const Icon(Icons.cloud_off_outlined, size: 40),
+            const SizedBox(height: 8),
+            Text(
+              'Todavía no hay cotizaciones',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const Text(
+              'Conectate una vez para descargarlas. Tus monedas y ajustes siguen disponibles.',
+              textAlign: TextAlign.center,
+            ),
+          ] else ...[
+            RateMetadata(snapshot: snapshot),
+            if (rates.source == RatesSource.cache)
               const _Notice(
-                icon: Icons.warning_amber,
-                text: 'No se pudieron leer las tasas guardadas.',
+                icon: Icons.offline_bolt_outlined,
+                text: 'Datos guardados',
               ),
-            if (rates.cacheWriteFailed)
+            if (RateStatus.isStale(snapshot, DateTime.now().toUtc()))
+              const _Notice(icon: Icons.history, text: 'Cotizaciones antiguas'),
+            if (RateStatus.isFromFuture(snapshot, DateTime.now().toUtc()))
               const _Notice(
-                icon: Icons.save_outlined,
-                text: 'Las tasas se actualizaron, pero no pudieron guardarse.',
-              ),
-            if (manualRefreshRemaining > Duration.zero)
-              _Notice(
-                icon: Icons.timer_outlined,
-                text:
-                    'Refresh manual disponible en ${_formatRemaining(manualRefreshRemaining)}.',
-              ),
-            if (rates.lastRefreshOutcome == RefreshOutcome.noNewer)
-              const _Notice(
-                icon: Icons.check_circle_outline,
-                text: 'No hay cotizaciones más recientes.',
-              ),
-            if (rates.lastRefreshOutcome == RefreshOutcome.limited &&
-                manualRefreshRemaining <= Duration.zero)
-              const _Notice(
-                icon: Icons.timer_outlined,
-                text: 'Esperá antes de volver a actualizar.',
+                icon: Icons.schedule,
+                text: 'Revisá la fecha del dispositivo',
               ),
           ],
+          if (rates.refreshFailure != null)
+            _Notice(
+              icon: Icons.warning_amber,
+              text: _failureText(rates.refreshFailure!, snapshot != null),
+            ),
+          if (rates.cacheReadFailed)
+            const _Notice(
+              icon: Icons.warning_amber,
+              text: 'No se pudieron leer las tasas guardadas.',
+            ),
+          if (rates.cacheWriteFailed)
+            const _Notice(
+              icon: Icons.save_outlined,
+              text: 'Las tasas se actualizaron, pero no pudieron guardarse.',
+            ),
+          if (manualRefreshRemaining > Duration.zero)
+            _Notice(
+              icon: Icons.timer_outlined,
+              text:
+                  'Refresh manual disponible en ${_formatRemaining(manualRefreshRemaining)}.',
+            ),
+          if (rates.lastRefreshOutcome == RefreshOutcome.noNewer)
+            const _Notice(
+              icon: Icons.check_circle_outline,
+              text: 'No hay cotizaciones más recientes.',
+            ),
+          if (rates.lastRefreshOutcome == RefreshOutcome.limited &&
+              manualRefreshRemaining <= Duration.zero)
+            const _Notice(
+              icon: Icons.timer_outlined,
+              text: 'Esperá antes de volver a actualizar.',
+            ),
+        ],
       ),
     );
   }

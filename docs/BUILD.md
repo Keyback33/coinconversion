@@ -45,28 +45,28 @@ Repetir la verificación sin recompilar:
 
 ```text
 dist/
-├── coinconversion-1.0.0.apk
-├── coinconversion-1.0.0.apk.sha256
-└── 1.0.0/
+├── coinconversion-1.0.1.apk
+├── coinconversion-1.0.1.apk.sha256
+└── 1.0.1/
     ├── apk-info.txt
     ├── permissions.txt
     └── signature.txt
 ```
 
-- [Descargar APK firmado 1.0.0](../dist/coinconversion-1.0.0.apk)
-- [Consultar checksum SHA-256](../dist/coinconversion-1.0.0.apk.sha256)
-- [Consultar firma pública](../dist/1.0.0/signature.txt)
-- [Consultar información del APK](../dist/1.0.0/apk-info.txt)
-- [Consultar permisos](../dist/1.0.0/permissions.txt)
+- [Descargar APK firmado 1.0.1](../dist/coinconversion-1.0.1.apk)
+- [Consultar checksum SHA-256](../dist/coinconversion-1.0.1.apk.sha256)
+- [Consultar firma pública](../dist/1.0.1/signature.txt)
+- [Consultar información del APK](../dist/1.0.1/apk-info.txt)
+- [Consultar permisos](../dist/1.0.1/permissions.txt)
 
 Para otra versión se debe incrementar `version` en `pubspec.yaml` y volver a ejecutar el script. Al preparar el commit se deben incluir tanto la nueva entrega como las eliminaciones de la versión anterior.
 
-La entrega `1.0.0` incluida actualmente fue compilada sin un `OXR_APP_ID` personal. El provider principal y el funcionamiento offline posterior a una descarga siguen disponibles.
+La entrega `1.0.1` incluida actualmente fue compilada sin un `OXR_APP_ID` personal. El provider principal y el funcionamiento offline posterior a una descarga siguen disponibles.
 
 ## Instalación
 
 Instalar en un dispositivo autorizado:
 
 ```powershell
-adb install -r dist/coinconversion-1.0.0.apk
+adb install -r dist/coinconversion-1.0.1.apk
 ```

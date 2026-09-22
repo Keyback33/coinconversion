@@ -40,141 +40,130 @@ class _RatesListState extends ConsumerState<RatesList> {
       icon: Icons.show_chart,
       title: 'Cotizaciones',
       child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 8,
-              children: [
-                Text(
-                  'Cotizaciones por 1 ${reference.code}',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                Semantics(
-                  button: true,
-                  label: 'Moneda activa ${reference.code}, ${reference.name}',
-                  child: FilledButton.tonalIcon(
-                    key: const Key('active-reference-button'),
-                    onPressed: () => _selectReference(preferences),
-                    icon: CurrencyFlag(currency: reference, size: 28),
-                    label: Text('${reference.code} · Moneda activa'),
-                  ),
-                ),
-                TextButton.icon(
-                  onPressed: () => setState(() => _editing = !_editing),
-                  icon: Icon(_editing ? Icons.done : Icons.edit_outlined),
-                  label: Text(_editing ? 'Listo' : 'Editar'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            if (visibleCodes.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Text(
-                  'No hay otras monedas para comparar. Podés agregar una cuando quieras.',
-                  textAlign: TextAlign.center,
-                ),
-              )
-            else
-              ReorderableListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                buildDefaultDragHandles: false,
-                itemCount: visibleCodes.length,
-                onReorder: (oldIndex, newIndex) =>
-                    _reorderVisible(preferences, oldIndex, newIndex),
-                itemBuilder: (context, index) {
-                  final currency = CurrencyCatalog.find(visibleCodes[index])!;
-                  final identity = CurrencyVisualIdentity.of(currency.code);
-                  final accent = identity.accentFor(
-                    Theme.of(context).brightness,
-                  );
-                  return Container(
-                    key: ValueKey(currency.code),
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.surface.withValues(alpha: 0.72),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border(left: BorderSide(color: accent, width: 4)),
-                    ),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.only(left: 8, right: 4),
-                      leading: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (_editing)
-                            ReorderableDragStartListener(
-                              index: index,
-                              child: const Tooltip(
-                                message: 'Reordenar',
-                                child: Icon(Icons.drag_handle),
-                              ),
-                            ),
-                          CurrencyFlag(currency: currency),
-                        ],
-                      ),
-                      title: Text('${currency.code} · ${currency.name}'),
-                      subtitle: currency.code == 'ARS'
-                          ? const Text('Referencia fiat estándar del provider')
-                          : null,
-                      trailing: _editing
-                          ? Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  tooltip: 'Subir ${currency.code}',
-                                  onPressed: index == 0
-                                      ? null
-                                      : () => _moveVisible(
-                                          preferences,
-                                          index,
-                                          -1,
-                                        ),
-                                  icon: const Icon(Icons.arrow_upward),
-                                ),
-                                IconButton(
-                                  tooltip: 'Bajar ${currency.code}',
-                                  onPressed: index == visibleCodes.length - 1
-                                      ? null
-                                      : () => _moveVisible(
-                                          preferences,
-                                          index,
-                                          1,
-                                        ),
-                                  icon: const Icon(Icons.arrow_downward),
-                                ),
-                                IconButton(
-                                  tooltip: 'Quitar ${currency.code}',
-                                  onPressed: () => ref
-                                      .read(
-                                        preferencesControllerProvider.notifier,
-                                      )
-                                      .removeFavorite(currency.code),
-                                  icon: const Icon(
-                                    Icons.remove_circle_outline,
-                                  ),
-                                ),
-                              ],
-                            )
-                          : Text(
-                              _rateText(reference.code, currency.code),
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                    ),
-                  );
-                },
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            children: [
+              Text(
+                'Cotizaciones por 1 ${reference.code}',
+                style: Theme.of(context).textTheme.titleLarge,
               ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: () => _addFavorite(preferences),
-              icon: const Icon(Icons.add),
-              label: const Text('Agregar moneda'),
+              Semantics(
+                button: true,
+                label: 'Moneda activa ${reference.code}, ${reference.name}',
+                child: FilledButton.tonalIcon(
+                  key: const Key('active-reference-button'),
+                  onPressed: () => _selectReference(preferences),
+                  icon: CurrencyFlag(currency: reference, size: 28),
+                  label: Text('${reference.code} · Moneda activa'),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: () => setState(() => _editing = !_editing),
+                icon: Icon(_editing ? Icons.done : Icons.edit_outlined),
+                label: Text(_editing ? 'Listo' : 'Editar'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (visibleCodes.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Text(
+                'No hay otras monedas para comparar. Podés agregar una cuando quieras.',
+                textAlign: TextAlign.center,
+              ),
+            )
+          else
+            ReorderableListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              buildDefaultDragHandles: false,
+              itemCount: visibleCodes.length,
+              onReorder: (oldIndex, newIndex) =>
+                  _reorderVisible(preferences, oldIndex, newIndex),
+              itemBuilder: (context, index) {
+                final currency = CurrencyCatalog.find(visibleCodes[index])!;
+                final identity = CurrencyVisualIdentity.of(currency.code);
+                final accent = identity.accentFor(Theme.of(context).brightness);
+                return Container(
+                  key: ValueKey(currency.code),
+                  margin: const EdgeInsets.symmetric(vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surface.withValues(alpha: 0.72),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border(left: BorderSide(color: accent, width: 4)),
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.only(left: 8, right: 4),
+                    leading: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_editing)
+                          ReorderableDragStartListener(
+                            index: index,
+                            child: const Tooltip(
+                              message: 'Reordenar',
+                              child: Icon(Icons.drag_handle),
+                            ),
+                          ),
+                        CurrencyFlag(currency: currency),
+                      ],
+                    ),
+                    title: Text('${currency.code} · ${currency.name}'),
+                    subtitle: currency.code == 'ARS'
+                        ? const Text('Referencia fiat estándar del provider')
+                        : null,
+                    trailing: _editing
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                tooltip: 'Subir ${currency.code}',
+                                onPressed: index == 0
+                                    ? null
+                                    : () =>
+                                          _moveVisible(preferences, index, -1),
+                                icon: const Icon(Icons.arrow_upward),
+                              ),
+                              IconButton(
+                                tooltip: 'Bajar ${currency.code}',
+                                onPressed: index == visibleCodes.length - 1
+                                    ? null
+                                    : () => _moveVisible(preferences, index, 1),
+                                icon: const Icon(Icons.arrow_downward),
+                              ),
+                              IconButton(
+                                tooltip: 'Quitar ${currency.code}',
+                                onPressed: () => ref
+                                    .read(
+                                      preferencesControllerProvider.notifier,
+                                    )
+                                    .removeFavorite(currency.code),
+                                icon: const Icon(Icons.remove_circle_outline),
+                              ),
+                            ],
+                          )
+                        : Text(
+                            _rateText(reference.code, currency.code),
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                  ),
+                );
+              },
             ),
-          ],
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () => _addFavorite(preferences),
+            icon: const Icon(Icons.add),
+            label: const Text('Agregar moneda'),
+          ),
+        ],
       ),
     );
   }
