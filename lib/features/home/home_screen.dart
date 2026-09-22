@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -23,6 +25,9 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen>
     with WidgetsBindingObserver {
+  Timer? _refreshCountdownTimer;
+  bool _manualCooldownWasActive = false;
+
   @override
   void initState() {
     super.initState();
@@ -30,12 +35,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     Future<void>.microtask(
       () => ref.read(ratesControllerProvider.notifier).initialize(),
     );
+    _refreshCountdownTimer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => _updateRefreshCountdown(),
+    );
   }
 
   @override
   void dispose() {
+    _refreshCountdownTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  void _updateRefreshCountdown() {
+    if (!mounted) {
+      return;
+    }
+    final availableAt = ref
+        .read(ratesControllerProvider)
+        .manualRefreshAvailableAtUtc;
+    final isActive =
+        _manualRefreshRemaining(availableAt, DateTime.now().toUtc()) >
+        Duration.zero;
+    if (isActive || _manualCooldownWasActive) {
+      setState(() => _manualCooldownWasActive = isActive);
+    }
   }
 
   @override
@@ -51,6 +76,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Widget build(BuildContext context) {
     final rates = ref.watch(ratesControllerProvider);
     final preferences = ref.watch(preferencesControllerProvider);
+    final manualRefreshRemaining = _manualRefreshRemaining(
+      rates.manualRefreshAvailableAtUtc,
+      DateTime.now().toUtc(),
+    );
+    final manualRefreshCoolingDown = manualRefreshRemaining > Duration.zero;
+    final refreshLabel = rates.isRefreshing
+        ? 'Refrescando…'
+        : manualRefreshCoolingDown
+        ? 'Disponible en ${_formatRemaining(manualRefreshRemaining)}'
+        : 'Refrescar';
     final compactActions = MediaQuery.sizeOf(context).width < 600 ||
         MediaQuery.textScalerOf(context).scale(1) >= 1.5;
     return Scaffold(
@@ -71,8 +106,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         actions: [
           if (compactActions)
             IconButton(
-              tooltip: rates.isRefreshing ? 'Refrescando…' : 'Refrescar',
-              onPressed: rates.isRefreshing
+              key: const Key('manual-refresh-button'),
+              tooltip: refreshLabel,
+              onPressed: rates.isRefreshing || manualRefreshCoolingDown
                   ? null
                   : () => ref
                         .read(ratesControllerProvider.notifier)
@@ -86,7 +122,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             )
           else
             TextButton.icon(
-              onPressed: rates.isRefreshing
+              key: const Key('manual-refresh-button'),
+              onPressed: rates.isRefreshing || manualRefreshCoolingDown
                   ? null
                   : () => ref
                         .read(ratesControllerProvider.notifier)
@@ -97,7 +134,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.refresh),
-              label: Text(rates.isRefreshing ? 'Refrescando…' : 'Refrescar'),
+              label: Text(refreshLabel),
             ),
           IconButton(
             tooltip: 'Ajustes',
@@ -126,13 +163,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ),
               )
             : RefreshIndicator(
-                onRefresh: () => ref
-                    .read(ratesControllerProvider.notifier)
-                    .refresh(RefreshTrigger.manual),
+                onRefresh: manualRefreshCoolingDown
+                    ? () async {}
+                    : () => ref
+                          .read(ratesControllerProvider.notifier)
+                          .refresh(RefreshTrigger.manual),
                 child: ListView(
                   padding: const EdgeInsets.all(12),
                   children: [
-                    _StatusCard(rates: rates),
+                    _StatusCard(
+                      rates: rates,
+                      manualRefreshRemaining: manualRefreshRemaining,
+                    ),
                     if (preferences.saveFailed)
                       const _Notice(
                         icon: Icons.save_outlined,
@@ -173,9 +215,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 }
 
 class _StatusCard extends StatelessWidget {
-  const _StatusCard({required this.rates});
+  const _StatusCard({
+    required this.rates,
+    required this.manualRefreshRemaining,
+  });
 
   final RatesState rates;
+  final Duration manualRefreshRemaining;
 
   @override
   Widget build(BuildContext context) {
@@ -233,12 +279,19 @@ class _StatusCard extends StatelessWidget {
                 icon: Icons.save_outlined,
                 text: 'Las tasas se actualizaron, pero no pudieron guardarse.',
               ),
+            if (manualRefreshRemaining > Duration.zero)
+              _Notice(
+                icon: Icons.timer_outlined,
+                text:
+                    'Refresh manual disponible en ${_formatRemaining(manualRefreshRemaining)}.',
+              ),
             if (rates.lastRefreshOutcome == RefreshOutcome.noNewer)
               const _Notice(
                 icon: Icons.check_circle_outline,
                 text: 'No hay cotizaciones más recientes.',
               ),
-            if (rates.lastRefreshOutcome == RefreshOutcome.limited)
+            if (rates.lastRefreshOutcome == RefreshOutcome.limited &&
+                manualRefreshRemaining <= Duration.zero)
               const _Notice(
                 icon: Icons.timer_outlined,
                 text: 'Esperá antes de volver a actualizar.',
@@ -262,6 +315,26 @@ class _StatusCard extends StatelessWidget {
       _ => 'No se pudo descargar una cotización válida.',
     };
   }
+}
+
+Duration _manualRefreshRemaining(DateTime? availableAtUtc, DateTime nowUtc) {
+  if (availableAtUtc == null || !availableAtUtc.isAfter(nowUtc)) {
+    return Duration.zero;
+  }
+  return availableAtUtc.difference(nowUtc);
+}
+
+String _formatRemaining(Duration duration) {
+  final totalSeconds = (duration.inMilliseconds + 999) ~/ 1000;
+  final hours = totalSeconds ~/ Duration.secondsPerHour;
+  final minutes =
+      (totalSeconds % Duration.secondsPerHour) ~/ Duration.secondsPerMinute;
+  final seconds = totalSeconds % Duration.secondsPerMinute;
+  if (hours > 0) {
+    return '$hours h ${minutes.toString().padLeft(2, '0')} min '
+        '${seconds.toString().padLeft(2, '0')} s';
+  }
+  return '$minutes min ${seconds.toString().padLeft(2, '0')} s';
 }
 
 class _Notice extends StatelessWidget {

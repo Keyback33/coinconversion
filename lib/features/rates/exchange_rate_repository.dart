@@ -15,6 +15,7 @@ class RefreshResult {
     required this.persisted,
     required this.outcome,
     required this.usedNetwork,
+    required this.manualRefreshAvailableAtUtc,
     this.failure,
   });
 
@@ -22,6 +23,7 @@ class RefreshResult {
   final bool persisted;
   final RefreshOutcome outcome;
   final bool usedNetwork;
+  final DateTime? manualRefreshAvailableAtUtc;
   final AppFailure? failure;
 }
 
@@ -39,7 +41,7 @@ class ExchangeRateRepository {
        _nowUtc = nowUtc ?? (() => DateTime.now().toUtc());
 
   static const automaticInterval = Duration(hours: 1);
-  static const manualDebounce = Duration(seconds: 60);
+  static const manualInterval = Duration(hours: 1);
   static const fallbackInterval = Duration(minutes: 5);
   static const primaryRateLimitCooldown = Duration(minutes: 20);
   static const fallbackDailyLimit = 30;
@@ -56,6 +58,12 @@ class ExchangeRateRepository {
   Future<RateSnapshot?> readCached() async {
     _current = await _cache.read();
     return _current;
+  }
+
+  Future<DateTime?> readManualRefreshAvailableAtUtc() async {
+    final now = _nowUtc().toUtc();
+    final policy = await _readPolicySafely();
+    return _manualRefreshAvailableAt(policy, now);
   }
 
   Future<RefreshResult> refresh(RefreshTrigger trigger) {
@@ -82,9 +90,9 @@ class ExchangeRateRepository {
         : policy.lastManualAtUtc;
     final triggerInterval = trigger == RefreshTrigger.automatic
         ? automaticInterval
-        : manualDebounce;
+        : manualInterval;
     if (_withinInterval(triggerTime, now, triggerInterval)) {
-      return _limitedResult();
+      return _limitedResult(_manualRefreshAvailableAt(policy, now));
     }
 
     policy = trigger == RefreshTrigger.automatic
@@ -194,6 +202,7 @@ class ExchangeRateRepository {
         persisted: persisted,
         outcome: outcome,
         usedNetwork: true,
+        manualRefreshAvailableAtUtc: _manualRefreshAvailableAt(policy, now),
       );
     }
 
@@ -207,11 +216,12 @@ class ExchangeRateRepository {
           ? RefreshOutcome.noNewer
           : RefreshOutcome.cacheKept,
       usedNetwork: false,
+      manualRefreshAvailableAtUtc: _manualRefreshAvailableAt(policy, now),
       failure: lastFailure,
     );
   }
 
-  RefreshResult _limitedResult() {
+  RefreshResult _limitedResult(DateTime? manualRefreshAvailableAtUtc) {
     final snapshot = _current;
     if (snapshot == null) {
       throw const AppFailure(AppFailureKind.refreshLimited);
@@ -221,7 +231,17 @@ class ExchangeRateRepository {
       persisted: true,
       outcome: RefreshOutcome.limited,
       usedNetwork: false,
+      manualRefreshAvailableAtUtc: manualRefreshAvailableAtUtc,
     );
+  }
+
+  DateTime? _manualRefreshAvailableAt(RefreshPolicy policy, DateTime now) {
+    final lastManual = policy.lastManualAtUtc;
+    if (lastManual == null || lastManual.isAfter(now)) {
+      return null;
+    }
+    final availableAt = lastManual.add(manualInterval);
+    return availableAt.isAfter(now) ? availableAt : null;
   }
 
   RateSnapshot _select(RateSnapshot? current, RateSnapshot candidate) {

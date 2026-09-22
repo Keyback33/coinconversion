@@ -9,7 +9,8 @@ La aplicación usa tablas con base USD y nunca mezcla tasas de providers distint
 
 ## Límites y frescura
 
-- Refresh manual: debounce local de 60 segundos.
+- Refresh manual: ciclos locales de una hora. Cada refresh manual aceptado inicia una espera fija de una hora; la aplicación muestra el tiempo restante y los intentos bloqueados no reinician el ciclo.
+- Refresh automático: se evalúa al iniciar o volver al foreground, con un intervalo mínimo independiente de una hora.
 - Fallback: como máximo un intento cada cinco minutos y 30 por día UTC en este dispositivo.
 - Cotizaciones con más de 48 horas se marcan como antiguas, pero siguen disponibles offline.
 - La fuente y las fechas visibles corresponden al snapshot efectivo utilizado para calcular la conversión.

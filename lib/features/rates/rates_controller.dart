@@ -16,17 +16,27 @@ class RatesController extends Notifier<RatesState> {
       return;
     }
     _initialized = true;
+    final repository = ref.read(exchangeRateRepositoryProvider);
     try {
-      final snapshot = await ref
-          .read(exchangeRateRepositoryProvider)
-          .readCached();
+      final snapshot = await repository.readCached();
+      final manualRefreshAvailableAtUtc = await repository
+          .readManualRefreshAvailableAtUtc();
       state = state.copyWith(
         snapshot: snapshot,
         isLoadingCache: false,
         source: snapshot == null ? RatesSource.none : RatesSource.cache,
+        manualRefreshAvailableAtUtc: manualRefreshAvailableAtUtc,
+        clearManualRefreshAvailableAt: manualRefreshAvailableAtUtc == null,
       );
     } on AppFailure {
-      state = state.copyWith(isLoadingCache: false, cacheReadFailed: true);
+      final manualRefreshAvailableAtUtc = await repository
+          .readManualRefreshAvailableAtUtc();
+      state = state.copyWith(
+        isLoadingCache: false,
+        cacheReadFailed: true,
+        manualRefreshAvailableAtUtc: manualRefreshAvailableAtUtc,
+        clearManualRefreshAvailableAt: manualRefreshAvailableAtUtc == null,
+      );
     }
     await refresh(RefreshTrigger.automatic);
   }
@@ -52,12 +62,20 @@ class RatesController extends Notifier<RatesState> {
         refreshFailure: result.failure,
         cacheWriteFailed: !result.persisted,
         lastRefreshOutcome: result.outcome,
+        manualRefreshAvailableAtUtc: result.manualRefreshAvailableAtUtc,
+        clearManualRefreshAvailableAt:
+            result.manualRefreshAvailableAtUtc == null,
         clearAttemptingProvider: true,
       );
     } on AppFailure catch (failure) {
+      final manualRefreshAvailableAtUtc = await ref
+          .read(exchangeRateRepositoryProvider)
+          .readManualRefreshAvailableAtUtc();
       state = state.copyWith(
         isRefreshing: false,
         refreshFailure: failure,
+        manualRefreshAvailableAtUtc: manualRefreshAvailableAtUtc,
+        clearManualRefreshAvailableAt: manualRefreshAvailableAtUtc == null,
         clearAttemptingProvider: true,
       );
     }

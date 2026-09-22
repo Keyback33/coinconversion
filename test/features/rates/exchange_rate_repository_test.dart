@@ -135,6 +135,120 @@ void main() {
     expect(result.snapshot, same(snapshot));
     expect(result.persisted, isFalse);
   });
+
+  test('refresh manual usa ciclos fijos de una hora', () async {
+    var current = now;
+    final primary = _FakeSource(
+      'exchange_rate_api',
+      () async => _snapshot(
+        'exchange_rate_api',
+        current.subtract(const Duration(minutes: 10)),
+      ),
+    );
+    final fallback = _FakeSource(
+      'open_exchange_rates',
+      () async => _snapshot('open_exchange_rates', current),
+    );
+    final repository = _repository(
+      primary,
+      fallback,
+      now: now,
+      nowUtc: () => current,
+    );
+
+    final first = await repository.refresh(RefreshTrigger.manual);
+    expect(
+      first.manualRefreshAvailableAtUtc,
+      now.add(const Duration(hours: 1)),
+    );
+
+    current = now.add(const Duration(minutes: 59));
+    final limited = await repository.refresh(RefreshTrigger.manual);
+    expect(limited.outcome, RefreshOutcome.limited);
+    expect(
+      limited.manualRefreshAvailableAtUtc,
+      now.add(const Duration(hours: 1)),
+    );
+    expect(primary.calls, 1);
+
+    current = now.add(const Duration(hours: 1));
+    final second = await repository.refresh(RefreshTrigger.manual);
+    expect(second.outcome, RefreshOutcome.updated);
+    expect(
+      second.manualRefreshAvailableAtUtc,
+      now.add(const Duration(hours: 2)),
+    );
+    expect(primary.calls, 2);
+  });
+
+  test('refresh automático no modifica el cooldown manual', () async {
+    var current = now;
+    final primary = _FakeSource(
+      'exchange_rate_api',
+      () async => _snapshot(
+        'exchange_rate_api',
+        current.subtract(const Duration(minutes: 10)),
+      ),
+    );
+    final repository = _repository(
+      primary,
+      _FakeSource(
+        'open_exchange_rates',
+        () async => _snapshot('open_exchange_rates', current),
+      ),
+      now: now,
+      nowUtc: () => current,
+    );
+
+    await repository.refresh(RefreshTrigger.manual);
+    current = now.add(const Duration(minutes: 30));
+    final automatic = await repository.refresh(RefreshTrigger.automatic);
+
+    expect(primary.calls, 2);
+    expect(
+      automatic.manualRefreshAvailableAtUtc,
+      now.add(const Duration(hours: 1)),
+    );
+
+    current = now.add(const Duration(minutes: 45));
+    final manual = await repository.refresh(RefreshTrigger.manual);
+    expect(manual.outcome, RefreshOutcome.limited);
+    expect(primary.calls, 2);
+  });
+
+  test('cooldown manual se recupera desde la política persistida', () async {
+    final policyStore = _MemoryPolicyStore();
+    final primary = _FakeSource(
+      'exchange_rate_api',
+      () async => _snapshot(
+        'exchange_rate_api',
+        now.subtract(const Duration(minutes: 10)),
+      ),
+    );
+    final fallback = _FakeSource(
+      'open_exchange_rates',
+      () async => _snapshot('open_exchange_rates', now),
+    );
+    final repository = _repository(
+      primary,
+      fallback,
+      now: now,
+      policyStore: policyStore,
+    );
+    await repository.refresh(RefreshTrigger.manual);
+
+    final recreated = _repository(
+      primary,
+      fallback,
+      now: now.add(const Duration(minutes: 15)),
+      policyStore: policyStore,
+    );
+
+    expect(
+      await recreated.readManualRefreshAvailableAtUtc(),
+      now.add(const Duration(hours: 1)),
+    );
+  });
 }
 
 ExchangeRateRepository _repository(
@@ -142,13 +256,15 @@ ExchangeRateRepository _repository(
   ExchangeRateSource fallback, {
   required DateTime now,
   _MemoryRatesCache? cache,
+  _MemoryPolicyStore? policyStore,
+  DateTime Function()? nowUtc,
 }) {
   return ExchangeRateRepository(
     primary: primary,
     fallback: fallback,
     cache: cache ?? _MemoryRatesCache(),
-    policyStore: _MemoryPolicyStore(),
-    nowUtc: () => now,
+    policyStore: policyStore ?? _MemoryPolicyStore(),
+    nowUtc: nowUtc ?? () => now,
   );
 }
 

@@ -70,6 +70,9 @@ void main() {
     expect(find.text('Fuente y estado'), findsOneWidget);
     expect(find.text('Cotizaciones'), findsOneWidget);
     expect(find.text('Conversor'), findsOneWidget);
+    expect(find.text('USD · Moneda activa'), findsOneWidget);
+    expect(find.text('USD · Dólar estadounidense'), findsNothing);
+    expect(find.text('ARS · Peso argentino'), findsOneWidget);
     expect(find.byType(CurrencyFlag), findsWidgets);
     expect(find.textContaining('Fuente: ExchangeRate-API'), findsWidgets);
 
@@ -235,6 +238,34 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('refresh manual muestra la espera y deshabilita el botón', (
+    tester,
+  ) async {
+    final source = _FixtureSource(
+      _snapshot('exchange_rate_api', DateTime.now().toUtc()),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          primaryRateSourceProvider.overrideWithValue(source),
+          fallbackRateSourceProvider.overrideWithValue(source),
+        ],
+        child: const CoinConversionApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('manual-refresh-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Refresh manual disponible en'), findsOneWidget);
+    final button = tester.widget<TextButton>(
+      find.byKey(const Key('manual-refresh-button')),
+    );
+    expect(button.onPressed, isNull);
   });
 }
 

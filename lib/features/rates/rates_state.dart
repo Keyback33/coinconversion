@@ -15,6 +15,7 @@ class RatesState {
     this.cacheWriteFailed = false,
     this.attemptingProviderId,
     this.lastRefreshOutcome,
+    this.manualRefreshAvailableAtUtc,
   });
 
   final RateSnapshot? snapshot;
@@ -26,6 +27,7 @@ class RatesState {
   final bool cacheWriteFailed;
   final String? attemptingProviderId;
   final RefreshOutcome? lastRefreshOutcome;
+  final DateTime? manualRefreshAvailableAtUtc;
 
   RatesState copyWith({
     RateSnapshot? snapshot,
@@ -39,6 +41,8 @@ class RatesState {
     String? attemptingProviderId,
     bool clearAttemptingProvider = false,
     RefreshOutcome? lastRefreshOutcome,
+    DateTime? manualRefreshAvailableAtUtc,
+    bool clearManualRefreshAvailableAt = false,
   }) {
     return RatesState(
       snapshot: snapshot ?? this.snapshot,
@@ -54,6 +58,9 @@ class RatesState {
           ? null
           : attemptingProviderId ?? this.attemptingProviderId,
       lastRefreshOutcome: lastRefreshOutcome ?? this.lastRefreshOutcome,
+      manualRefreshAvailableAtUtc: clearManualRefreshAvailableAt
+          ? null
+          : manualRefreshAvailableAtUtc ?? this.manualRefreshAvailableAtUtc,
     );
   }
 }

@@ -11,6 +11,7 @@ import '../currencies/currency_catalog.dart';
 import '../currencies/currency_selector.dart';
 import '../currencies/currency_visual_identity.dart';
 import '../settings/user_preferences.dart';
+import 'favorite_rates_order.dart';
 import 'rate_snapshot.dart';
 
 class RatesList extends ConsumerStatefulWidget {
@@ -29,6 +30,10 @@ class _RatesListState extends ConsumerState<RatesList> {
   Widget build(BuildContext context) {
     final preferences = ref.watch(preferencesControllerProvider).value;
     final reference = CurrencyCatalog.find(preferences.referenceCode)!;
+    final visibleCodes = visibleFavoriteRates(
+      preferences.favoriteCodes,
+      preferences.referenceCode,
+    );
     final sections = Theme.of(context).extension<AppSectionTheme>()!;
     return SectionCard(
       style: sections.rates,
@@ -46,29 +51,29 @@ class _RatesListState extends ConsumerState<RatesList> {
                   'Cotizaciones por 1 ${reference.code}',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    OutlinedButton(
-                      onPressed: () => _selectReference(preferences),
-                      child: Text(reference.code),
-                    ),
-                    const SizedBox(width: 8),
-                    TextButton.icon(
-                      onPressed: () => setState(() => _editing = !_editing),
-                      icon: Icon(_editing ? Icons.done : Icons.edit_outlined),
-                      label: Text(_editing ? 'Listo' : 'Editar'),
-                    ),
-                  ],
+                Semantics(
+                  button: true,
+                  label: 'Moneda activa ${reference.code}, ${reference.name}',
+                  child: FilledButton.tonalIcon(
+                    key: const Key('active-reference-button'),
+                    onPressed: () => _selectReference(preferences),
+                    icon: CurrencyFlag(currency: reference, size: 28),
+                    label: Text('${reference.code} · Moneda activa'),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () => setState(() => _editing = !_editing),
+                  icon: Icon(_editing ? Icons.done : Icons.edit_outlined),
+                  label: Text(_editing ? 'Listo' : 'Editar'),
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            if (preferences.favoriteCodes.isEmpty)
+            if (visibleCodes.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 24),
                 child: Text(
-                  'No hay monedas favoritas. Podés agregar una cuando quieras.',
+                  'No hay otras monedas para comparar. Podés agregar una cuando quieras.',
                   textAlign: TextAlign.center,
                 ),
               )
@@ -77,14 +82,11 @@ class _RatesListState extends ConsumerState<RatesList> {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 buildDefaultDragHandles: false,
-                itemCount: preferences.favoriteCodes.length,
-                onReorder: ref
-                    .read(preferencesControllerProvider.notifier)
-                    .reorderFavorite,
+                itemCount: visibleCodes.length,
+                onReorder: (oldIndex, newIndex) =>
+                    _reorderVisible(preferences, oldIndex, newIndex),
                 itemBuilder: (context, index) {
-                  final currency = CurrencyCatalog.find(
-                    preferences.favoriteCodes[index],
-                  )!;
+                  final currency = CurrencyCatalog.find(visibleCodes[index])!;
                   final identity = CurrencyVisualIdentity.of(currency.code);
                   final accent = identity.accentFor(
                     Theme.of(context).brightness,
@@ -127,26 +129,22 @@ class _RatesListState extends ConsumerState<RatesList> {
                                   tooltip: 'Subir ${currency.code}',
                                   onPressed: index == 0
                                       ? null
-                                      : () => ref
-                                            .read(
-                                              preferencesControllerProvider
-                                                  .notifier,
-                                            )
-                                            .moveFavorite(index, -1),
+                                      : () => _moveVisible(
+                                          preferences,
+                                          index,
+                                          -1,
+                                        ),
                                   icon: const Icon(Icons.arrow_upward),
                                 ),
                                 IconButton(
                                   tooltip: 'Bajar ${currency.code}',
-                                  onPressed:
-                                      index ==
-                                          preferences.favoriteCodes.length - 1
+                                  onPressed: index == visibleCodes.length - 1
                                       ? null
-                                      : () => ref
-                                            .read(
-                                              preferencesControllerProvider
-                                                  .notifier,
-                                            )
-                                            .moveFavorite(index, 1),
+                                      : () => _moveVisible(
+                                          preferences,
+                                          index,
+                                          1,
+                                        ),
                                   icon: const Icon(Icons.arrow_downward),
                                 ),
                                 IconButton(
@@ -212,12 +210,45 @@ class _RatesListState extends ConsumerState<RatesList> {
       context,
       title: 'Agregar moneda',
       snapshot: widget.snapshot,
-      excludedCodes: preferences.favoriteCodes.toSet(),
+      excludedCodes: {...preferences.favoriteCodes, preferences.referenceCode},
     );
     if (selected != null) {
       ref
           .read(preferencesControllerProvider.notifier)
           .addFavorite(selected.code);
     }
+  }
+
+  void _reorderVisible(
+    UserPreferences preferences,
+    int oldIndex,
+    int newIndex,
+  ) {
+    final favoriteCodes = reorderVisibleFavoriteRates(
+      favoriteCodes: preferences.favoriteCodes,
+      referenceCode: preferences.referenceCode,
+      oldIndex: oldIndex,
+      newIndex: newIndex,
+    );
+    _saveFavoriteOrder(preferences, favoriteCodes);
+  }
+
+  void _moveVisible(UserPreferences preferences, int index, int offset) {
+    final favoriteCodes = moveVisibleFavoriteRate(
+      favoriteCodes: preferences.favoriteCodes,
+      referenceCode: preferences.referenceCode,
+      index: index,
+      offset: offset,
+    );
+    _saveFavoriteOrder(preferences, favoriteCodes);
+  }
+
+  void _saveFavoriteOrder(
+    UserPreferences preferences,
+    List<String> favoriteCodes,
+  ) {
+    ref
+        .read(preferencesControllerProvider.notifier)
+        .update(preferences.copyWith(favoriteCodes: favoriteCodes));
   }
 }
