@@ -12,72 +12,89 @@ class RatesController extends Notifier<RatesState> {
   RatesState build() => const RatesState();
 
   Future<void> initialize() async {
-    if (_initialized) {
-      return;
-    }
+    if (_initialized) return;
     _initialized = true;
-    final repository = ref.read(exchangeRateRepositoryProvider);
+    final general = ref.read(exchangeRateRepositoryProvider);
+    final mep = ref.read(mepRateRepositoryProvider);
+    final coordinator = ref.read(ratesRefreshCoordinatorProvider);
     try {
-      final snapshot = await repository.readCached();
-      final manualRefreshAvailableAtUtc = await repository
-          .readManualRefreshAvailableAtUtc();
+      final snapshot = await general.readCached();
       state = state.copyWith(
         snapshot: snapshot,
-        isLoadingCache: false,
         source: snapshot == null ? RatesSource.none : RatesSource.cache,
-        manualRefreshAvailableAtUtc: manualRefreshAvailableAtUtc,
-        clearManualRefreshAvailableAt: manualRefreshAvailableAtUtc == null,
       );
     } on AppFailure {
-      final manualRefreshAvailableAtUtc = await repository
-          .readManualRefreshAvailableAtUtc();
-      state = state.copyWith(
-        isLoadingCache: false,
-        cacheReadFailed: true,
-        manualRefreshAvailableAtUtc: manualRefreshAvailableAtUtc,
-        clearManualRefreshAvailableAt: manualRefreshAvailableAtUtc == null,
-      );
+      state = state.copyWith(cacheReadFailed: true);
     }
+    try {
+      final quote = await mep.readCached();
+      state = state.copyWith(
+        mep: quote,
+        mepSource: quote == null ? RatesSource.none : RatesSource.cache,
+      );
+    } on AppFailure {
+      state = state.copyWith(mepCacheReadFailed: true);
+    }
+    final available = await coordinator.readManualRefreshAvailableAtUtc();
+    state = state.copyWith(
+      isLoadingCache: false,
+      manualRefreshAvailableAtUtc: available,
+      clearManualRefreshAvailableAt: available == null,
+    );
     await refresh(RefreshTrigger.automatic);
   }
 
   Future<void> refresh(RefreshTrigger trigger) async {
-    if (state.isRefreshing) {
-      return;
-    }
+    if (state.isRefreshing) return;
     state = state.copyWith(
       isRefreshing: true,
-      attemptingProviderId: 'exchange_rate_api',
       clearRefreshFailure: true,
+      clearMepRefreshFailure: true,
       cacheWriteFailed: false,
+      mepCacheWriteFailed: false,
+      mepPolicyWriteFailed: false,
     );
     try {
       final result = await ref
-          .read(exchangeRateRepositoryProvider)
-          .refresh(trigger);
+          .read(ratesRefreshCoordinatorProvider)
+          .refresh(
+            trigger,
+            onGeneral: (data, failure) {
+              state = state.copyWith(
+                snapshot: data?.snapshot,
+                source: data?.usedNetwork == true
+                    ? RatesSource.network
+                    : state.source,
+                refreshFailure: failure ?? data?.failure,
+                cacheWriteFailed: data != null && !data.persisted,
+                lastRefreshOutcome: data?.outcome,
+              );
+            },
+            onMep: (data, failure) {
+              state = state.copyWith(
+                mep: data?.quote,
+                mepSource: data?.usedNetwork == true
+                    ? RatesSource.network
+                    : state.mepSource,
+                mepRefreshFailure: failure ?? data?.failure,
+                mepCacheWriteFailed: data != null && !data.persisted,
+                mepPolicyWriteFailed: data != null && !data.policyPersisted,
+              );
+            },
+          );
       state = state.copyWith(
-        snapshot: result.snapshot,
         isRefreshing: false,
-        source: result.usedNetwork ? RatesSource.network : state.source,
-        refreshFailure: result.failure,
-        cacheWriteFailed: !result.persisted,
-        lastRefreshOutcome: result.outcome,
+        lastRefreshOutcome: result.limited
+            ? RefreshOutcome.limited
+            : state.lastRefreshOutcome,
+        mepPolicyWriteFailed:
+            !result.policyPersisted || state.mepPolicyWriteFailed,
         manualRefreshAvailableAtUtc: result.manualRefreshAvailableAtUtc,
         clearManualRefreshAvailableAt:
             result.manualRefreshAvailableAtUtc == null,
-        clearAttemptingProvider: true,
       );
     } on AppFailure catch (failure) {
-      final manualRefreshAvailableAtUtc = await ref
-          .read(exchangeRateRepositoryProvider)
-          .readManualRefreshAvailableAtUtc();
-      state = state.copyWith(
-        isRefreshing: false,
-        refreshFailure: failure,
-        manualRefreshAvailableAtUtc: manualRefreshAvailableAtUtc,
-        clearManualRefreshAvailableAt: manualRefreshAvailableAtUtc == null,
-        clearAttemptingProvider: true,
-      );
+      state = state.copyWith(isRefreshing: false, refreshFailure: failure);
     }
   }
 }

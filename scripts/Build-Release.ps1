@@ -1,5 +1,4 @@
 param(
-    [string]$PrivateConfigPath,
     [string]$AndroidSdk = "$env:LOCALAPPDATA/Android/sdk",
     [string]$JavaHome = 'C:/Program Files/Android/Android Studio/jbr'
 )
@@ -22,16 +21,7 @@ try {
     & flutter test
     if ($LASTEXITCODE -ne 0) { throw 'Fallaron las pruebas.' }
 
-    $buildArguments = @('build', 'apk', '--release')
-    if ($PrivateConfigPath) {
-        $resolvedPrivateConfig = (Resolve-Path -LiteralPath $PrivateConfigPath -ErrorAction Stop).Path
-        if (!(Test-Path -LiteralPath $resolvedPrivateConfig -PathType Leaf)) {
-            throw 'La configuración privada debe ser un archivo.'
-        }
-        $buildArguments += "--dart-define-from-file=$resolvedPrivateConfig"
-    }
-
-    & flutter @buildArguments
+    & flutter build apk --release
     if ($LASTEXITCODE -ne 0) { throw 'Falló la compilación.' }
 
     $versionMatch = [regex]::Match(

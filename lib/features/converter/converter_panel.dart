@@ -12,15 +12,18 @@ import '../currencies/currency_catalog.dart';
 import '../currencies/currency_selector.dart';
 import '../currencies/currency_visual_identity.dart';
 import '../rates/rate_metadata.dart';
+import '../rates/conversion_rates.dart';
+import '../rates/mep_metadata.dart';
 import '../rates/rate_snapshot.dart';
 import '../settings/user_preferences.dart';
 import 'amount_parser.dart';
 import 'currency_converter.dart';
 
 class ConverterPanel extends ConsumerStatefulWidget {
-  const ConverterPanel({required this.snapshot, super.key});
+  const ConverterPanel({required this.snapshot, this.rates, super.key});
 
   final RateSnapshot? snapshot;
+  final ConversionRates? rates;
 
   @override
   ConsumerState<ConverterPanel> createState() => _ConverterPanelState();
@@ -153,10 +156,23 @@ class _ConverterPanelState extends ConsumerState<ConverterPanel> {
           const SizedBox(height: 12),
           if (from.code == to.code)
             const Text('Conversión directa; no requiere cotización.')
-          else if (widget.snapshot != null)
-            RateMetadata(snapshot: widget.snapshot!, compact: true)
-          else
-            const Text('Conectate una vez para descargar cotizaciones.'),
+          else ...[
+            if (from.code == 'ARS' || to.code == 'ARS')
+              if (widget.rates?.mep != null)
+                MepMetadata(quote: widget.rates!.mep!, compact: true)
+              else
+                const Text('MEP no disponible'),
+            if (!(from.code == 'ARS' && to.code == 'USD') &&
+                !(from.code == 'USD' && to.code == 'ARS'))
+              if (widget.snapshot != null)
+                RateMetadata(
+                  snapshot: widget.snapshot!,
+                  compact: true,
+                  codes: {from.code, to.code},
+                )
+              else
+                const Text('Tabla general no disponible'),
+          ],
         ],
       ),
     );
@@ -175,12 +191,14 @@ class _ConverterPanelState extends ConsumerState<ConverterPanel> {
         from: from,
         to: to,
         snapshot: widget.snapshot,
+        context: widget.rates,
       );
       final raw = CurrencyConverter.convert(
         amount: parsed.value!,
         from: from,
         to: to,
         snapshot: widget.snapshot,
+        context: widget.rates,
       );
       final rounded = CurrencyConverter.roundForCurrency(raw, to);
       return _ConversionView(
@@ -192,7 +210,8 @@ class _ConverterPanelState extends ConsumerState<ConverterPanel> {
       return _ConversionView(
         inputError: switch (error.failure) {
           ConversionFailure.missingRate =>
-            'No hay cotización para esta moneda.',
+            widget.rates?.unavailableReason(from.code, to.code) ??
+                'No hay cotización para esta moneda.',
           ConversionFailure.resultTooLarge =>
             'El importe supera el límite permitido.',
           _ => 'No se pudo usar esta cotización.',
@@ -225,6 +244,10 @@ class _ConverterPanelState extends ConsumerState<ConverterPanel> {
           ? preferences.converterFromCode
           : preferences.converterToCode,
       snapshot: widget.snapshot,
+      rates: widget.rates,
+      counterpartCode: selectingFrom
+          ? preferences.converterToCode
+          : preferences.converterFromCode,
     );
     if (selected == null) {
       return;

@@ -9,28 +9,14 @@
 
 El proyecto genera únicamente Android y usa `ar.com.coinconversion` como `applicationId`.
 
-## Configuración del fallback
+## Fuentes de cotizaciones
 
-Open Exchange Rates requiere un App ID personal. Debe proporcionarse mediante un JSON privado ubicado fuera del repositorio:
-
-```json
-{
-  "OXR_APP_ID": "valor-personal"
-}
-```
-
-Ejecutar la aplicación con esa configuración desde la raíz del proyecto:
+ExchangeRate-API es la tabla general principal. Frankfurter funciona como alternativa automática sin credenciales. Ejecutar la aplicación desde la raíz del proyecto:
 
 ```powershell
-flutter run --dart-define-from-file=C:\ruta-privada\coinconversion.private.json
+flutter run
 ```
 
 Para generar la distribución firmada, consultar [Build y distribución](BUILD.md).
 
-## Seguridad de la configuración
-
-No guardar el App ID en el repositorio, logs, fixtures ni documentación. Los archivos `*.private.json` están excluidos de Git.
-
-`dart-define` evita versionar el valor como archivo de configuración, pero no lo vuelve secreto dentro del APK: la credencial puede extraerse del binario. Un build con App ID debe mantenerse para uso personal.
-
-Sin esa configuración, la aplicación utiliza ExchangeRate-API y el cache, e informa que el fallback no está configurado. La release `1.0.0` publicada actualmente fue compilada sin un `OXR_APP_ID` personal.
+MEP usa DolarAPI, ArgentinaDatos y un cache propio. La release publicada puede no incluir estos cambios del código fuente hasta generar una nueva versión.

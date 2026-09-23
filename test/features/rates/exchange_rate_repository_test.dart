@@ -51,10 +51,7 @@ void main() {
       );
       final cache = _MemoryRatesCache()..value = cached;
       final primary = _FakeSource('exchange_rate_api', () async => cached);
-      final fallbackSnapshot = _snapshot(
-        'open_exchange_rates',
-        now.subtract(const Duration(minutes: 5)),
-      );
+      final fallbackSnapshot = _snapshot('open_exchange_rates', now);
       final fallback = _FakeSource(
         'open_exchange_rates',
         () async => fallbackSnapshot,
@@ -249,6 +246,91 @@ void main() {
       now.add(const Duration(hours: 1)),
     );
   });
+
+  test('migra límites OXR sin perder cooldown global ni cache', () async {
+    final cached = _snapshot(
+      'open_exchange_rates',
+      now.subtract(const Duration(days: 2)),
+    );
+    final cache = _MemoryRatesCache()..value = cached;
+    final policyStore = _MemoryPolicyStore()
+      ..value = RefreshPolicy(
+        lastManualAtUtc: now.subtract(const Duration(minutes: 30)),
+        fallback: ProviderRefreshRecord(
+          lastAttemptAtUtc: now,
+          blockedUntilUtc: now.add(const Duration(days: 1)),
+        ),
+        fallbackBudgetDayUtc: DateTime.utc(now.year, now.month, now.day),
+        fallbackAttemptsToday: 30,
+      );
+    final fallback = _FakeSource(
+      'frankfurter',
+      () async => _dailySnapshot(DateTime.utc(2026, 9, 22)),
+    );
+    final repository = _repository(
+      _FakeSource(
+        'exchange_rate_api',
+        () async => throw const AppFailure(AppFailureKind.transport),
+      ),
+      fallback,
+      now: now,
+      cache: cache,
+      policyStore: policyStore,
+    );
+    await repository.readCached();
+    final result = await repository.refresh(RefreshTrigger.automatic);
+    expect(result.snapshot.providerId, 'frankfurter');
+    expect(fallback.calls, 1);
+    expect(policyStore.value.fallbackProviderId, 'frankfurter');
+    expect(policyStore.value.fallbackAttemptsToday, 1);
+    expect(
+      policyStore.value.lastManualAtUtc,
+      now.subtract(const Duration(minutes: 30)),
+    );
+  });
+
+  test(
+    'fecha conservadora no reemplaza cache intradiario del mismo día',
+    () async {
+      final cached = _snapshot(
+        'exchange_rate_api',
+        DateTime.utc(2026, 9, 21, 12),
+      );
+      final cache = _MemoryRatesCache()..value = cached;
+      final repository = _repository(
+        _FakeSource('exchange_rate_api', () async => cached),
+        _FakeSource(
+          'frankfurter',
+          () async => _dailySnapshot(DateTime.utc(2026, 9, 21)),
+        ),
+        now: now,
+        cache: cache,
+      );
+      await repository.readCached();
+      final result = await repository.refresh(RefreshTrigger.manual);
+      expect(result.snapshot, same(cached));
+    },
+  );
+}
+
+RateSnapshot _dailySnapshot(DateTime day) {
+  final rates = {
+    'USD': 1.0,
+    'ARS': 1450.0,
+    'PEN': 3.745,
+    'EUR': 0.92,
+    'BRL': 5.1,
+    'CLP': 930.0,
+    'UYU': 39.2,
+  };
+  return RateSnapshot(
+    baseCode: 'USD',
+    rates: rates,
+    providerId: 'frankfurter',
+    quotedAtUtc: day,
+    fetchedAtUtc: day.add(const Duration(days: 1)),
+    quotedDatesUtc: {for (final code in rates.keys) code: day},
+  );
 }
 
 ExchangeRateRepository _repository(

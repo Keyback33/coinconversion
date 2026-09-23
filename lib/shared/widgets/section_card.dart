@@ -9,6 +9,9 @@ class SectionCard extends StatelessWidget {
     required this.title,
     required this.child,
     this.headerTrailing,
+    this.expanded,
+    this.onExpansionChanged,
+    this.summary,
     super.key,
   });
 
@@ -17,6 +20,9 @@ class SectionCard extends StatelessWidget {
   final String title;
   final Widget child;
   final Widget? headerTrailing;
+  final bool? expanded;
+  final ValueChanged<bool>? onExpansionChanged;
+  final Widget? summary;
 
   @override
   Widget build(BuildContext context) {
@@ -31,21 +37,41 @@ class SectionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Icon(icon, color: style.icon),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleLarge,
+            InkWell(
+              onTap: expanded == null
+                  ? null
+                  : () {
+                      if (!expanded!) {
+                        FocusManager.instance.primaryFocus?.unfocus();
+                      }
+                      onExpansionChanged?.call(!expanded!);
+                    },
+              borderRadius: BorderRadius.circular(12),
+              child: Semantics(
+                button: expanded != null,
+                expanded: expanded,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 48),
+                  child: Row(
+                    children: [
+                      Icon(icon, color: style.icon),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                      ),
+                      ?headerTrailing,
+                      if (expanded != null)
+                        Icon(expanded! ? Icons.expand_less : Icons.expand_more),
+                    ],
                   ),
                 ),
-                ?headerTrailing,
-              ],
+              ),
             ),
-            const SizedBox(height: 12),
-            child,
+            if (expanded == false && summary != null) summary!,
+            if (expanded != false) ...[const SizedBox(height: 12), child],
           ],
         ),
       ),

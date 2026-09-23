@@ -20,12 +20,10 @@ El keystore, sus contraseñas y cualquier configuración privada deben permanece
 Ejecutar desde la raíz del proyecto:
 
 ```powershell
-./scripts/Build-Release.ps1 -PrivateConfigPath C:\ruta-privada\coinconversion.private.json
+./scripts/Build-Release.ps1
 ```
 
-`PrivateConfigPath` es opcional. Sin ese parámetro, la aplicación utiliza ExchangeRate-API y el cache, pero no dispone del fallback autenticado de Open Exchange Rates.
-
-El script nunca copia el JSON privado a `dist` ni imprime su contenido. El App ID sí queda embebido en el APK cuando se compila con esa configuración, por lo que la distribución debe mantenerse para uso personal.
+El build incluye ExchangeRate-API y Frankfurter como fallback automático sin configuración privada. La opción anterior `PrivateConfigPath` ya no forma parte del script.
 
 ## Validación y retención
 
@@ -45,28 +43,28 @@ Repetir la verificación sin recompilar:
 
 ```text
 dist/
-├── coinconversion-1.0.1.apk
-├── coinconversion-1.0.1.apk.sha256
-└── 1.0.1/
+├── coinconversion-1.0.2.apk
+├── coinconversion-1.0.2.apk.sha256
+└── 1.0.2/
     ├── apk-info.txt
     ├── permissions.txt
     └── signature.txt
 ```
 
-- [Descargar APK firmado 1.0.1](../dist/coinconversion-1.0.1.apk)
-- [Consultar checksum SHA-256](../dist/coinconversion-1.0.1.apk.sha256)
-- [Consultar firma pública](../dist/1.0.1/signature.txt)
-- [Consultar información del APK](../dist/1.0.1/apk-info.txt)
-- [Consultar permisos](../dist/1.0.1/permissions.txt)
+- [Descargar APK firmado 1.0.2](../dist/coinconversion-1.0.2.apk)
+- [Consultar checksum SHA-256](../dist/coinconversion-1.0.2.apk.sha256)
+- [Consultar firma pública](../dist/1.0.2/signature.txt)
+- [Consultar información del APK](../dist/1.0.2/apk-info.txt)
+- [Consultar permisos](../dist/1.0.2/permissions.txt)
 
-Para otra versión se debe incrementar `version` en `pubspec.yaml` y volver a ejecutar el script. Al preparar el commit se deben incluir tanto la nueva entrega como las eliminaciones de la versión anterior.
+Para otra versión se debe incrementar `version` en `pubspec.yaml`, sincronizar la versión visible en Ajustes y volver a ejecutar el script. Al preparar el commit se deben incluir tanto la nueva entrega como las eliminaciones de la versión anterior.
 
-La entrega `1.0.1` incluida actualmente fue compilada sin un `OXR_APP_ID` personal. El provider principal y el funcionamiento offline posterior a una descarga siguen disponibles.
+La entrega `1.0.2` incluye ExchangeRate-API, Frankfurter, las fuentes MEP y cache offline independiente para ambas ramas. No requiere credenciales de providers.
 
 ## Instalación
 
 Instalar en un dispositivo autorizado:
 
 ```powershell
-adb install -r dist/coinconversion-1.0.1.apk
+adb install -r dist/coinconversion-1.0.2.apk
 ```

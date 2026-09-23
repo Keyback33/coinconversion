@@ -21,6 +21,25 @@ void main() {
       throwsArgumentError,
     );
   });
+
+  test('conserva fechas diarias y lee snapshots legacy', () {
+    final legacy = _createSnapshot();
+    expect(RateSnapshot.fromJson(legacy.toJson()).hasDailyDates, isFalse);
+    final dates = {
+      for (final code in _rates().keys) code: DateTime.utc(2026, 9, 20),
+    }..['BRL'] = DateTime.utc(2026, 9, 19);
+    final daily = RateSnapshot(
+      baseCode: 'USD',
+      rates: _rates(),
+      providerId: 'frankfurter',
+      quotedAtUtc: DateTime.utc(2026, 9, 19),
+      fetchedAtUtc: DateTime.utc(2026, 9, 21),
+      quotedDatesUtc: dates,
+    );
+    final restored = RateSnapshot.fromJson(daily.toJson());
+    expect(restored.quotedAtFor('BRL'), DateTime.utc(2026, 9, 19));
+    expect(restored.quotedAtFor('EUR'), DateTime.utc(2026, 9, 20));
+  });
 }
 
 RateSnapshot _createSnapshot({

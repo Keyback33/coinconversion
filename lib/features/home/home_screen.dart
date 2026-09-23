@@ -12,6 +12,7 @@ import '../../theme/app_theme.dart';
 import '../converter/converter_panel.dart';
 import '../rates/exchange_rate_repository.dart';
 import '../rates/rate_metadata.dart';
+import '../rates/mep_metadata.dart';
 import '../rates/rates_list.dart';
 import '../rates/rates_state.dart';
 import '../settings/settings_screen.dart';
@@ -27,6 +28,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     with WidgetsBindingObserver {
   Timer? _refreshCountdownTimer;
   bool _manualCooldownWasActive = false;
+  bool _statusExpanded = false;
 
   @override
   void initState() {
@@ -174,7 +176,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   children: [
                     _StatusCard(
                       rates: rates,
-                      manualRefreshRemaining: manualRefreshRemaining,
+                      expanded: _statusExpanded,
+                      onExpansionChanged: (value) =>
+                          setState(() => _statusExpanded = value),
                     ),
                     if (preferences.saveFailed)
                       const _Notice(
@@ -184,9 +188,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     const SizedBox(height: 8),
                     LayoutBuilder(
                       builder: (context, constraints) {
-                        final ratesList = RatesList(snapshot: rates.snapshot);
+                        final ratesList = RatesList(
+                          snapshot: rates.snapshot,
+                          rates: rates.conversionRates,
+                        );
                         final converter = ConverterPanel(
                           snapshot: rates.snapshot,
+                          rates: rates.conversionRates,
                         );
                         if (constraints.maxWidth >= 760) {
                           return Row(
@@ -218,24 +226,42 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 class _StatusCard extends StatelessWidget {
   const _StatusCard({
     required this.rates,
-    required this.manualRefreshRemaining,
+    required this.expanded,
+    required this.onExpansionChanged,
   });
 
   final RatesState rates;
-  final Duration manualRefreshRemaining;
+  final bool expanded;
+  final ValueChanged<bool> onExpansionChanged;
 
   @override
   Widget build(BuildContext context) {
     final snapshot = rates.snapshot;
+    final mep = rates.mep;
     final sections = Theme.of(context).extension<AppSectionTheme>()!;
     return SectionCard(
       style: sections.status,
       icon: Icons.cloud_sync_outlined,
       title: 'Fuente y estado',
+      expanded: expanded,
+      onExpansionChanged: onExpansionChanged,
+      summary: Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Text(
+          'Tabla general: ${snapshot == null ? 'no disponible' : 'disponible'} · '
+          'MEP: ${mep == null ? 'no disponible' : 'disponible'}'
+          '${snapshot != null && RateStatus.isStale(snapshot, DateTime.now().toUtc()) ? ' · Tabla antigua' : ''}'
+          '${snapshot != null && RateStatus.isFromFuture(snapshot, DateTime.now().toUtc()) ? ' · Revisá la fecha del dispositivo' : ''}'
+          '${mep != null && mep.isStaleAt(DateTime.now().toUtc()) ? ' · MEP antiguo' : ''}'
+          '${rates.source == RatesSource.cache || rates.mepSource == RatesSource.cache ? ' · Datos guardados' : ''}'
+          '${rates.refreshFailure != null || rates.mepRefreshFailure != null ? ' · Error de actualización' : ''}'
+          '${rates.cacheReadFailed || rates.mepCacheReadFailed || rates.cacheWriteFailed || rates.mepCacheWriteFailed || rates.mepPolicyWriteFailed ? ' · Aviso de almacenamiento' : ''}',
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (snapshot == null) ...[
+          if (snapshot == null && mep == null) ...[
             const Icon(Icons.cloud_off_outlined, size: 40),
             const SizedBox(height: 8),
             Text(
@@ -248,20 +274,71 @@ class _StatusCard extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
           ] else ...[
-            RateMetadata(snapshot: snapshot),
+            Text(
+              'Tabla general',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            if (snapshot != null)
+              RateMetadata(snapshot: snapshot)
+            else
+              const Text('No disponible'),
+            const SizedBox(height: 12),
+            Text(
+              'Peso argentino (MEP)',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            if (mep != null)
+              MepMetadata(quote: mep)
+            else
+              const Text('No disponible'),
             if (rates.source == RatesSource.cache)
               const _Notice(
                 icon: Icons.offline_bolt_outlined,
                 text: 'Datos guardados',
               ),
-            if (RateStatus.isStale(snapshot, DateTime.now().toUtc()))
+            if (snapshot != null &&
+                RateStatus.isStale(snapshot, DateTime.now().toUtc()))
               const _Notice(icon: Icons.history, text: 'Cotizaciones antiguas'),
-            if (RateStatus.isFromFuture(snapshot, DateTime.now().toUtc()))
+            if (snapshot != null &&
+                RateStatus.isFromFuture(snapshot, DateTime.now().toUtc()))
               const _Notice(
                 icon: Icons.schedule,
                 text: 'Revisá la fecha del dispositivo',
               ),
           ],
+          if (mep == null)
+            const _Notice(
+              icon: Icons.warning_amber,
+              text:
+                  'MEP no disponible. Los pares con ARS no tienen cotización.',
+            ),
+          if (mep != null && rates.mepSource == RatesSource.cache)
+            const _Notice(
+              icon: Icons.offline_bolt_outlined,
+              text: 'MEP guardado',
+            ),
+          if (rates.mepRefreshFailure != null)
+            _Notice(
+              icon: Icons.warning_amber,
+              text: mep != null
+                  ? 'No se pudo actualizar MEP; usando dato guardado.'
+                  : 'No se pudo descargar MEP.',
+            ),
+          if (rates.mepCacheReadFailed)
+            const _Notice(
+              icon: Icons.warning_amber,
+              text: 'No se pudo leer MEP guardado.',
+            ),
+          if (rates.mepCacheWriteFailed)
+            const _Notice(
+              icon: Icons.save_outlined,
+              text: 'MEP actualizado, pero no pudo guardarse.',
+            ),
+          if (rates.mepPolicyWriteFailed)
+            const _Notice(
+              icon: Icons.save_outlined,
+              text: 'No se pudieron guardar los límites de refresh.',
+            ),
           if (rates.refreshFailure != null)
             _Notice(
               icon: Icons.warning_amber,
@@ -277,19 +354,17 @@ class _StatusCard extends StatelessWidget {
               icon: Icons.save_outlined,
               text: 'Las tasas se actualizaron, pero no pudieron guardarse.',
             ),
-          if (manualRefreshRemaining > Duration.zero)
-            _Notice(
-              icon: Icons.timer_outlined,
-              text:
-                  'Refresh manual disponible en ${_formatRemaining(manualRefreshRemaining)}.',
-            ),
           if (rates.lastRefreshOutcome == RefreshOutcome.noNewer)
             const _Notice(
               icon: Icons.check_circle_outline,
               text: 'No hay cotizaciones más recientes.',
             ),
           if (rates.lastRefreshOutcome == RefreshOutcome.limited &&
-              manualRefreshRemaining <= Duration.zero)
+              _manualRefreshRemaining(
+                    rates.manualRefreshAvailableAtUtc,
+                    DateTime.now().toUtc(),
+                  ) <=
+                  Duration.zero)
             const _Notice(
               icon: Icons.timer_outlined,
               text: 'Esperá antes de volver a actualizar.',

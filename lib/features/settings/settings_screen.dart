@@ -43,53 +43,52 @@ class SettingsScreen extends ConsumerWidget {
             const SizedBox(height: 16),
             const ListTile(
               leading: Icon(Icons.cloud_download_outlined),
-              title: Text('Proveedor principal'),
+              title: Text('Tabla general principal'),
               subtitle: Text('ExchangeRate-API · publicación diaria'),
             ),
             const ListTile(
               leading: Icon(Icons.cloud_sync_outlined),
-              title: Text('Fuente alternativa'),
-              subtitle: Text('Open Exchange Rates · publicación horaria'),
-            ),
-            ListTile(
-              leading: Icon(
-                openExchangeRatesAppId.isEmpty
-                    ? Icons.warning_amber
-                    : Icons.check_circle_outline,
-              ),
-              title: const Text('Fallback'),
+              title: Text('Tabla general alternativa'),
               subtitle: Text(
-                openExchangeRatesAppId.isEmpty
-                    ? 'No configurado en este build'
-                    : 'Configurado para este build personal',
+                'Frankfurter · automática, sin credencial · fechas por par',
               ),
+            ),
+            const ListTile(
+              leading: Icon(Icons.currency_exchange),
+              title: Text('MEP principal'),
+              subtitle: Text('DolarAPI · dólar MEP venta'),
+            ),
+            const ListTile(
+              leading: Icon(Icons.history),
+              title: Text('Respaldo MEP histórico'),
+              subtitle: Text('ArgentinaDatos · referencia histórica de venta'),
             ),
             const Divider(),
             const ListTile(
               leading: Icon(Icons.info_outline),
               title: Text('Peso argentino'),
               subtitle: Text(
-                'ARS es una referencia fiat estándar del provider. No representa dólar blue, MEP, CCL ni un precio operable.',
+                'Los cruces con ARS usan dólar MEP venta como referencia orientativa. No representan un precio operable.',
               ),
             ),
             const ListTile(
               leading: Icon(Icons.offline_bolt_outlined),
               title: Text('Funcionamiento offline'),
               subtitle: Text(
-                'Después de una descarga exitosa, se usa localmente la última tabla completa conservando su fuente y fechas.',
+                'Después de una descarga exitosa, se usan localmente la última tabla general y el último MEP válidos, con sus fuentes y fechas.',
               ),
             ),
             const ListTile(
               leading: Icon(Icons.lock_outline),
               title: Text('Privacidad'),
               subtitle: Text(
-                'Los montos y preferencias no se envían. Los providers reciben solo la consulta de la tabla USD.',
+                'Los montos y preferencias no se envían. Los providers reciben consultas de tasas generales USD o de MEP.',
               ),
             ),
             const ListTile(
               leading: Icon(Icons.android),
               title: Text('Versión'),
-              subtitle: Text('1.0.0 (1)'),
+              subtitle: Text('1.0.2 (3)'),
             ),
           ],
         ),

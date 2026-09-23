@@ -38,6 +38,7 @@ class RefreshPolicy {
     this.lastManualAtUtc,
     this.fallbackBudgetDayUtc,
     this.fallbackAttemptsToday = 0,
+    this.fallbackProviderId,
   });
 
   final ProviderRefreshRecord primary;
@@ -46,6 +47,7 @@ class RefreshPolicy {
   final DateTime? lastManualAtUtc;
   final DateTime? fallbackBudgetDayUtc;
   final int fallbackAttemptsToday;
+  final String? fallbackProviderId;
 
   RefreshPolicy copyWith({
     ProviderRefreshRecord? primary,
@@ -54,6 +56,7 @@ class RefreshPolicy {
     DateTime? lastManualAtUtc,
     DateTime? fallbackBudgetDayUtc,
     int? fallbackAttemptsToday,
+    String? fallbackProviderId,
   }) {
     return RefreshPolicy(
       primary: primary ?? this.primary,
@@ -63,6 +66,7 @@ class RefreshPolicy {
       fallbackBudgetDayUtc: fallbackBudgetDayUtc ?? this.fallbackBudgetDayUtc,
       fallbackAttemptsToday:
           fallbackAttemptsToday ?? this.fallbackAttemptsToday,
+      fallbackProviderId: fallbackProviderId ?? this.fallbackProviderId,
     );
   }
 
@@ -73,6 +77,7 @@ class RefreshPolicy {
     'lastManualAtUtc': lastManualAtUtc?.toIso8601String(),
     'fallbackBudgetDayUtc': fallbackBudgetDayUtc?.toIso8601String(),
     'fallbackAttemptsToday': fallbackAttemptsToday,
+    'fallbackProviderId': fallbackProviderId,
   };
 
   factory RefreshPolicy.fromJson(Map<String, Object?> json) {
@@ -91,6 +96,9 @@ class RefreshPolicy {
       fallbackAttemptsToday: json['fallbackAttemptsToday'] is int
           ? (json['fallbackAttemptsToday'] as int).clamp(0, 30)
           : 0,
+      fallbackProviderId: json['fallbackProviderId'] is String
+          ? json['fallbackProviderId'] as String
+          : null,
     );
   }
 }

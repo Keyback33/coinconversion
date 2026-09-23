@@ -5,17 +5,22 @@ La aplicación usa una organización feature-first pequeña, con responsabilidad
 ## Componentes principales
 
 - Riverpod manual para composición y estado.
-- `ExchangeRateRepository` para cache, límites, selección por frescura y fallback secuencial.
+- `RatesRefreshCoordinator` para cooldown global, deduplicación y actualización independiente de ambas ramas.
+- `ExchangeRateRepository` para cache, límites por provider, selección por frescura y fallback de la tabla general.
+- `MepRateRepository` para selección temporal, cache y política MEP independientes.
 - `ExchangeRateApiClient` como fuente principal sin credencial.
-- `OpenExchangeRatesApiClient` como fuente alternativa horaria con App ID.
+- `FrankfurterApiClient` como fuente alternativa diaria sin credencial y con fecha por par.
+- `DolarApiClient` y `ArgentinaDatosMepClient` como fuentes MEP principal e histórica.
 - `SharedPreferencesAsync` para snapshot, preferencias y política de refresh versionados.
 - `CurrencyConverter`, parser y formatter como lógica Dart pura.
 
 ## Reglas de datos
 
-Nunca se mezclan tasas de providers diferentes en un mismo snapshot. El provider, la fecha de extracción y la fecha de cotización mostrados pertenecen a la tabla usada para calcular el resultado.
+Nunca se mezclan tasas de providers diferentes en un mismo `RateSnapshot`. `ConversionRates` compone explícitamente el snapshot general y `MepQuote`, con procedencia y fecha propias. Todo par con ARS distinto de identidad usa MEP venta; `CurrencyConverter` no toma ARS fiat del snapshot.
 
-El cache permite conservar la última tabla válida y continuar convirtiendo sin conexión. Los límites de refresh y fallback se aplican desde el repository y se persisten localmente cuando corresponde.
+`rates_snapshot_v1` permanece compatible y `mep_quote_v1` guarda sólo el MEP elegido. `refresh_policy_v1` conserva el cooldown global y la política general; `mep_refresh_policy_v1` registra límites de ambas fuentes MEP. La falta o corrupción de un cache no impide leer el otro.
+
+Al reemplazar Open Exchange Rates, la política general reinicia sólo los límites del fallback. El cache anterior conserva su provider. Frankfurter se compara por la fecha mínima de los pares sin ARS; una tabla incompleta no se almacena.
 
 ## Organización relevante
 

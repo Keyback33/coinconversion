@@ -1,6 +1,8 @@
 import 'package:coinconversion/features/converter/currency_converter.dart';
 import 'package:coinconversion/features/currencies/currency_catalog.dart';
 import 'package:coinconversion/features/rates/rate_snapshot.dart';
+import 'package:coinconversion/features/rates/conversion_rates.dart';
+import 'package:coinconversion/features/rates/mep_quote.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -8,8 +10,17 @@ void main() {
   final usd = CurrencyCatalog.find('USD')!;
   final ars = CurrencyCatalog.find('ARS')!;
   final pen = CurrencyCatalog.find('PEN')!;
+  final mep = MepQuote(
+    sellArsPerUsd: 1200,
+    providerId: 'dolar_api',
+    quotedDate: '2026-09-20',
+    precision: MepTimePrecision.instant,
+    quotedAtUtc: DateTime.utc(2026, 9, 20, 12),
+    fetchedAtUtc: DateTime.utc(2026, 9, 20, 12, 5),
+  );
+  final rates = ConversionRates(snapshot: snapshot, mep: mep);
 
-  test('convierte USD a PEN y ARS a PEN sin redondeo intermedio', () {
+  test('convierte USD a PEN y ARS a PEN con MEP sin redondeo intermedio', () {
     expect(
       CurrencyConverter.convert(
         amount: 100,
@@ -21,10 +32,11 @@ void main() {
     );
     expect(
       CurrencyConverter.convert(
-        amount: 14500,
+        amount: 12000,
         from: ars,
         to: pen,
         snapshot: snapshot,
+        context: rates,
       ),
       closeTo(37.45, 1e-12),
     );
@@ -35,11 +47,13 @@ void main() {
       from: ars,
       to: pen,
       snapshot: snapshot,
+      context: rates,
     );
     final backward = CurrencyConverter.rate(
       from: pen,
       to: ars,
       snapshot: snapshot,
+      context: rates,
     );
 
     expect(forward * backward, closeTo(1, 1e-12));
@@ -74,6 +88,7 @@ void main() {
         from: usd,
         to: ars,
         snapshot: snapshot,
+        context: rates,
       ),
       throwsA(
         isA<ConversionException>().having(
@@ -90,6 +105,39 @@ void main() {
     expect(
       CurrencyConverter.roundForCurrency(1234.6, CurrencyCatalog.find('CLP')!),
       1235,
+    );
+  });
+
+  test('sin MEP no usa ARS fiat; USD/ARS funciona sin tabla general', () {
+    expect(
+      () => CurrencyConverter.rate(from: usd, to: ars, snapshot: snapshot),
+      throwsA(
+        isA<ConversionException>().having(
+          (error) => error.failure,
+          'failure',
+          ConversionFailure.missingRate,
+        ),
+      ),
+    );
+    expect(
+      CurrencyConverter.convert(
+        amount: 100,
+        from: usd,
+        to: ars,
+        snapshot: null,
+        context: ConversionRates(mep: mep),
+      ),
+      120000,
+    );
+    expect(
+      CurrencyConverter.convert(
+        amount: 120000,
+        from: ars,
+        to: usd,
+        snapshot: null,
+        context: ConversionRates(mep: mep),
+      ),
+      100,
     );
   });
 }

@@ -5,10 +5,16 @@ import '../../shared/rate_status.dart';
 import 'rate_snapshot.dart';
 
 class RateMetadata extends StatelessWidget {
-  const RateMetadata({required this.snapshot, this.compact = false, super.key});
+  const RateMetadata({
+    required this.snapshot,
+    this.compact = false,
+    this.codes,
+    super.key,
+  });
 
   final RateSnapshot snapshot;
   final bool compact;
+  final Set<String>? codes;
 
   @override
   Widget build(BuildContext context) {
@@ -28,14 +34,15 @@ class RateMetadata extends StatelessWidget {
             ),
           ),
         ),
-        Text(
-          'Extraído: ${RateStatus.localDate(snapshot.fetchedAtUtc)} · hora local',
-          style: style,
-        ),
-        Text(
-          'Cotización del provider: ${RateStatus.localDate(snapshot.quotedAtUtc)}',
-          style: style,
-        ),
+        if (snapshot.hasDailyDates) ...[
+          for (final code in codes ?? snapshot.quotedDatesUtc.keys)
+            if (code != 'ARS' && code != 'USD')
+              Text(
+                '$code: ${RateStatus.quotedDate(snapshot, code: code)}',
+                style: style,
+              ),
+        ] else
+          Text('Cotización: ${RateStatus.quotedDate(snapshot)}', style: style),
       ],
     );
   }

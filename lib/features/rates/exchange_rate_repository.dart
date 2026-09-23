@@ -66,12 +66,15 @@ class ExchangeRateRepository {
     return _manualRefreshAvailableAt(policy, now);
   }
 
-  Future<RefreshResult> refresh(RefreshTrigger trigger) {
+  Future<RefreshResult> refresh(
+    RefreshTrigger trigger, {
+    bool skipGlobalGuard = false,
+  }) {
     final active = _inFlight;
     if (active != null) {
       return active;
     }
-    final operation = _refresh(trigger);
+    final operation = _refresh(trigger, skipGlobalGuard: skipGlobalGuard);
     _inFlight = operation;
     return operation.whenComplete(() {
       if (identical(_inFlight, operation)) {
@@ -80,9 +83,13 @@ class ExchangeRateRepository {
     });
   }
 
-  Future<RefreshResult> _refresh(RefreshTrigger trigger) async {
+  Future<RefreshResult> _refresh(
+    RefreshTrigger trigger, {
+    required bool skipGlobalGuard,
+  }) async {
     final now = _nowUtc().toUtc();
     var policy = await _readPolicySafely();
+    policy = _migrateFallbackPolicy(policy);
     policy = _normalizePolicy(policy, now);
 
     final triggerTime = trigger == RefreshTrigger.automatic
@@ -91,14 +98,17 @@ class ExchangeRateRepository {
     final triggerInterval = trigger == RefreshTrigger.automatic
         ? automaticInterval
         : manualInterval;
-    if (_withinInterval(triggerTime, now, triggerInterval)) {
+    if (!skipGlobalGuard &&
+        _withinInterval(triggerTime, now, triggerInterval)) {
       return _limitedResult(_manualRefreshAvailableAt(policy, now));
     }
 
-    policy = trigger == RefreshTrigger.automatic
-        ? policy.copyWith(lastAutomaticAtUtc: now)
-        : policy.copyWith(lastManualAtUtc: now);
-    await _writePolicySafely(policy);
+    if (!skipGlobalGuard) {
+      policy = trigger == RefreshTrigger.automatic
+          ? policy.copyWith(lastAutomaticAtUtc: now)
+          : policy.copyWith(lastManualAtUtc: now);
+      await _writePolicySafely(policy);
+    }
 
     RateSnapshot? primaryCandidate;
     RateSnapshot? fallbackCandidate;
@@ -245,10 +255,20 @@ class ExchangeRateRepository {
   }
 
   RateSnapshot _select(RateSnapshot? current, RateSnapshot candidate) {
-    if (current == null ||
-        candidate.quotedAtUtc.isAfter(current.quotedAtUtc) ||
-        (candidate.quotedAtUtc.isAtSameMomentAs(current.quotedAtUtc) &&
-            candidate.providerId == current.providerId)) {
+    if (current == null) return candidate;
+    final candidateDay = _dayUtc(candidate.quotedAtUtc);
+    final currentDay = _dayUtc(current.quotedAtUtc);
+    if (candidateDay.isAfter(currentDay) ||
+        (candidateDay.isAtSameMomentAs(currentDay) &&
+            !candidate.hasDailyDates &&
+            current.hasDailyDates) ||
+        (candidateDay.isAtSameMomentAs(currentDay) &&
+            candidate.hasDailyDates == current.hasDailyDates &&
+            (candidate.quotedAtUtc.isAfter(current.quotedAtUtc) ||
+                (candidate.providerId == current.providerId &&
+                    candidate.quotedAtUtc.isAtSameMomentAs(
+                      current.quotedAtUtc,
+                    ))))) {
       return candidate;
     }
     return current;
@@ -285,6 +305,17 @@ class ExchangeRateRepository {
       );
     }
     return policy;
+  }
+
+  RefreshPolicy _migrateFallbackPolicy(RefreshPolicy policy) {
+    if (policy.fallbackProviderId == _fallback.providerId) return policy;
+    if (_fallback.providerId != 'frankfurter') return policy;
+    return policy.copyWith(
+      fallback: const ProviderRefreshRecord(),
+      fallbackBudgetDayUtc: DateTime.utc(1970),
+      fallbackAttemptsToday: 0,
+      fallbackProviderId: _fallback.providerId,
+    );
   }
 
   DateTime _dayUtc(DateTime value) =>

@@ -3,7 +3,11 @@ import 'dart:convert';
 import 'package:coinconversion/app.dart';
 import 'package:coinconversion/features/rates/exchange_rate_source.dart';
 import 'package:coinconversion/features/rates/rate_snapshot.dart';
+import 'package:coinconversion/features/rates/mep_quote.dart';
+import 'package:coinconversion/features/rates/mep_rate_source.dart';
 import 'package:coinconversion/features/rates/rates_cache.dart';
+import 'package:coinconversion/features/settings/preferences_store.dart';
+import 'package:coinconversion/features/settings/user_preferences.dart';
 import 'package:coinconversion/providers.dart';
 import 'package:coinconversion/shared/app_failure.dart';
 import 'package:coinconversion/shared/widgets/app_brand_mark.dart';
@@ -70,11 +74,17 @@ void main() {
     expect(find.text('Fuente y estado'), findsOneWidget);
     expect(find.text('Cotizaciones'), findsOneWidget);
     expect(find.text('Conversor'), findsOneWidget);
+    expect(find.text('USD · Moneda activa'), findsNothing);
+    await tester.tap(find.text('Cotizaciones'));
+    await tester.pumpAndSettle();
     expect(find.text('USD · Moneda activa'), findsOneWidget);
     expect(find.text('USD · Dólar estadounidense'), findsNothing);
     expect(find.text('ARS · Peso argentino'), findsOneWidget);
     expect(find.byType(CurrencyFlag), findsWidgets);
-    expect(find.textContaining('Fuente: ExchangeRate-API'), findsWidgets);
+    expect(
+      find.textContaining('Tabla general: ExchangeRate-API'),
+      findsOneWidget,
+    );
 
     await tester.ensureVisible(find.byKey(const Key('amount-field')));
     await tester.enterText(find.byKey(const Key('amount-field')), '100');
@@ -100,7 +110,14 @@ void main() {
     await tester.tap(find.byTooltip('Ajustes'));
     await tester.pumpAndSettle();
     expect(find.text('Ajustes'), findsOneWidget);
-    expect(find.text('Proveedor principal'), findsOneWidget);
+    expect(find.text('Tabla general principal'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Versión'),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('1.0.2 (3)'), findsOneWidget);
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
       SystemChannels.platform,
       null,
@@ -123,11 +140,16 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.textContaining('Tabla general: no disponible'), findsOneWidget);
+    await tester.tap(find.text('Fuente y estado'));
+    await tester.pumpAndSettle();
     expect(find.text('Todavía no hay cotizaciones'), findsOneWidget);
     expect(
       find.textContaining('Conectate una vez para descargarlas'),
       findsOneWidget,
     );
+    await tester.tap(find.text('Cotizaciones'));
+    await tester.pumpAndSettle();
     expect(find.text('Agregar moneda'), findsOneWidget);
     expect(find.byTooltip('Ajustes'), findsOneWidget);
   });
@@ -157,6 +179,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Fuente y estado'));
+    await tester.pumpAndSettle();
     expect(find.text('Datos guardados'), findsOneWidget);
     expect(
       find.text('No se pudo actualizar; usando datos guardados.'),
@@ -203,7 +227,9 @@ void main() {
       findsWidgets,
     );
     expect(find.text('Datos guardados'), findsNothing);
-    expect(find.textContaining('Extraído:'), findsWidgets);
+    await tester.tap(find.text('Fuente y estado'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Cotización:'), findsWidgets);
   });
 
   testWidgets('layout móvil tolera texto al 200%', (tester) async {
@@ -240,6 +266,135 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('secciones mantienen apertura independiente durante refresh', (
+    tester,
+  ) async {
+    final source = _FixtureSource(
+      _snapshot('exchange_rate_api', DateTime.now().toUtc()),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          primaryRateSourceProvider.overrideWithValue(source),
+          fallbackRateSourceProvider.overrideWithValue(source),
+          primaryMepSourceProvider.overrideWithValue(
+            const _ThrowingMepSource(),
+          ),
+          fallbackMepSourceProvider.overrideWithValue(
+            const _ThrowingMepSource(),
+          ),
+        ],
+        child: const CoinConversionApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('USD · Moneda activa'), findsNothing);
+    expect(find.textContaining('Fuente: ExchangeRate-API'), findsOneWidget);
+    expect(find.byKey(const Key('amount-field')), findsOneWidget);
+
+    await tester.tap(find.text('Cotizaciones'));
+    await tester.pumpAndSettle();
+    expect(find.text('USD · Moneda activa'), findsOneWidget);
+    expect(find.textContaining('Fuente: ExchangeRate-API'), findsOneWidget);
+
+    await tester.tap(find.text('Fuente y estado'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Fuente: ExchangeRate-API'), findsNWidgets(2));
+    await tester.tap(find.byKey(const Key('manual-refresh-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('USD · Moneda activa'), findsOneWidget);
+    expect(find.textContaining('Fuente: ExchangeRate-API'), findsNWidgets(2));
+  });
+
+  testWidgets('abrir secciones quita el foco del monto', (tester) async {
+    final source = _FixtureSource(
+      _snapshot('exchange_rate_api', DateTime.now().toUtc()),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          primaryRateSourceProvider.overrideWithValue(source),
+          fallbackRateSourceProvider.overrideWithValue(source),
+          primaryMepSourceProvider.overrideWithValue(
+            const _ThrowingMepSource(),
+          ),
+          fallbackMepSourceProvider.overrideWithValue(
+            const _ThrowingMepSource(),
+          ),
+        ],
+        child: const CoinConversionApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final amount = find.byKey(const Key('amount-field'));
+    final focus = tester.widget<TextField>(amount).focusNode!;
+
+    await tester.tap(amount);
+    await tester.pump();
+    expect(focus.hasFocus, isTrue);
+    await tester.ensureVisible(find.text('Fuente y estado'));
+    await tester.tap(find.text('Fuente y estado'));
+    await tester.pumpAndSettle();
+    expect(focus.hasFocus, isFalse);
+
+    await tester.ensureVisible(amount);
+    await tester.tap(amount);
+    await tester.pump();
+    expect(focus.hasFocus, isTrue);
+    await tester.ensureVisible(find.text('Cotizaciones'));
+    await tester.tap(find.text('Cotizaciones'));
+    await tester.pumpAndSettle();
+    expect(focus.hasFocus, isFalse);
+  });
+
+  testWidgets('Frankfurter muestra fechas diarias por moneda sin hora', (
+    tester,
+  ) async {
+    final rates = <String, double>{
+      'USD': 1,
+      'ARS': 1450,
+      'PEN': 3.745,
+      'EUR': 0.92,
+      'BRL': 5.1,
+      'CLP': 930,
+      'UYU': 39.2,
+    };
+    final dates = {
+      for (final code in rates.keys) code: DateTime.utc(2026, 9, 22),
+    }..['BRL'] = DateTime.utc(2026, 9, 21);
+    final snapshot = RateSnapshot(
+      baseCode: 'USD',
+      rates: rates,
+      providerId: 'frankfurter',
+      quotedAtUtc: DateTime.utc(2026, 9, 21),
+      fetchedAtUtc: DateTime.utc(2026, 9, 23),
+      quotedDatesUtc: dates,
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          primaryRateSourceProvider.overrideWithValue(const _ThrowingSource()),
+          fallbackRateSourceProvider.overrideWithValue(
+            _FixtureSource(snapshot),
+          ),
+          primaryMepSourceProvider.overrideWithValue(
+            const _ThrowingMepSource(),
+          ),
+          fallbackMepSourceProvider.overrideWithValue(
+            const _ThrowingMepSource(),
+          ),
+        ],
+        child: const CoinConversionApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Fuente y estado'));
+    await tester.pumpAndSettle();
+    expect(find.text('BRL: 21/09/2026'), findsOneWidget);
+    expect(find.text('EUR: 22/09/2026'), findsOneWidget);
+    expect(find.textContaining('Extraído:'), findsNothing);
+  });
+
   testWidgets('refresh manual muestra la espera y deshabilita el botón', (
     tester,
   ) async {
@@ -261,11 +416,102 @@ void main() {
     await tester.tap(find.byKey(const Key('manual-refresh-button')));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Refresh manual disponible en'), findsOneWidget);
     final button = tester.widget<TextButton>(
       find.byKey(const Key('manual-refresh-button')),
     );
     expect(button.onPressed, isNull);
+  });
+
+  testWidgets('MEP permite USD/ARS sin tabla general y muestra su fuente', (
+    tester,
+  ) async {
+    final now = DateTime.now().toUtc();
+    final quotedAt = now.subtract(const Duration(minutes: 1));
+    final preferences = UserPreferences.defaults.copyWith(
+      converterToCode: 'ARS',
+    );
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.withData({
+          PreferencesStore.key: jsonEncode({
+            'schemaVersion': PreferencesStore.schemaVersion,
+            'preferences': preferences.toJson(),
+          }),
+        });
+    final mep = MepQuote(
+      sellArsPerUsd: 1200,
+      providerId: 'dolar_api',
+      quotedDate: MepQuote.argentinaDate(quotedAt),
+      precision: MepTimePrecision.instant,
+      quotedAtUtc: quotedAt,
+      fetchedAtUtc: now,
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          primaryRateSourceProvider.overrideWithValue(const _ThrowingSource()),
+          fallbackRateSourceProvider.overrideWithValue(const _ThrowingSource()),
+          primaryMepSourceProvider.overrideWithValue(_FixtureMepSource(mep)),
+          fallbackMepSourceProvider.overrideWithValue(_FixtureMepSource(mep)),
+        ],
+        child: const CoinConversionApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('amount-field')));
+    await tester.enterText(find.byKey(const Key('amount-field')), '100');
+    await tester.pump();
+    expect(find.textContaining('120.000,00'), findsOneWidget);
+    expect(find.textContaining('Referencia ARS: dólar MEP'), findsWidgets);
+    expect(find.textContaining('MEP · DolarAPI'), findsWidgets);
+    expect(find.text('Tabla general no disponible'), findsNothing);
+  });
+
+  testWidgets('tabla general no sustituye MEP y deshabilita copiar', (
+    tester,
+  ) async {
+    final preferences = UserPreferences.defaults.copyWith(
+      converterToCode: 'ARS',
+    );
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.withData({
+          PreferencesStore.key: jsonEncode({
+            'schemaVersion': PreferencesStore.schemaVersion,
+            'preferences': preferences.toJson(),
+          }),
+        });
+    final source = _FixtureSource(
+      _snapshot('exchange_rate_api', DateTime.now().toUtc()),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          primaryRateSourceProvider.overrideWithValue(source),
+          fallbackRateSourceProvider.overrideWithValue(source),
+          primaryMepSourceProvider.overrideWithValue(
+            const _ThrowingMepSource(),
+          ),
+          fallbackMepSourceProvider.overrideWithValue(
+            const _ThrowingMepSource(),
+          ),
+        ],
+        child: const CoinConversionApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('amount-field')));
+    await tester.enterText(find.byKey(const Key('amount-field')), '100');
+    await tester.pump();
+    expect(find.text('MEP no disponible'), findsWidgets);
+    expect(
+      tester.widget<Text>(find.byKey(const Key('conversion-result'))).data,
+      '—',
+    );
+    expect(
+      tester
+          .widget<IconButton>(find.widgetWithIcon(IconButton, Icons.copy))
+          .onPressed,
+      isNull,
+    );
   });
 }
 
@@ -313,5 +559,23 @@ class _ThrowingSource implements ExchangeRateSource {
 
   @override
   Future<RateSnapshot> fetchLatest() async =>
+      throw const AppFailure(AppFailureKind.transport);
+}
+
+class _FixtureMepSource implements MepRateSource {
+  const _FixtureMepSource(this.quote);
+  final MepQuote quote;
+  @override
+  String get providerId => quote.providerId;
+  @override
+  Future<MepQuote> fetchLatest() async => quote;
+}
+
+class _ThrowingMepSource implements MepRateSource {
+  const _ThrowingMepSource();
+  @override
+  String get providerId => 'fixture_failure';
+  @override
+  Future<MepQuote> fetchLatest() async =>
       throw const AppFailure(AppFailureKind.transport);
 }
